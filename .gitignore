@@ -1,0 +1,246 @@
+# ============================================
+# SECRETS & API KEYS - CRITICAL
+# ============================================
+.env
+.env.*
+!.env.example
+.mcp.json
+*.key
+*.pem
+*.p12
+*.pfx
+*.cer
+*.crt
+*.der
+secrets.json
+credentials.json
+config.local.json
+firebase-adminsdk-*.json
+serviceAccountKey.json
+service-account-key.json
+scripts/service-account-key.json
+
+# API Keys patterns
+*apikey*
+*api-key*
+*secret*
+*password*
+*token*
+
+# ============================================
+# FIREBASE & AUTH
+# ============================================
+.firebase/
+.firebaserc
+firebase-debug.log
+firebaseServiceAccount.json
+
+# ============================================
+# CUSTOMER DATA & PII (GDPR)
+# ============================================
+# Evita di committare dati clienti
+/uploads/
+/customer-data/
+/test-data/*.pdf
+/test-data/*.docx
+/test-data/*.xlsx
+/backup-data/
+*.csv
+# Exception: template files
+!*template*.csv
+!*example*.csv
+
+# ============================================
+# DATABASE FILES
+# ============================================
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sql
+# Exception: schema files
+!schema.sql
+!migrations/*.sql
+!database/*.sql
+
+# ============================================
+# NODE MODULES & DEPENDENCIES
+# ============================================
+node_modules/
+bower_components/
+jspm_packages/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ============================================
+# BUILD & DIST
+# ============================================
+dist/
+build/
+.cache/
+.parcel-cache/
+.next/
+out/
+.nuxt/
+.vuepress/dist/
+.serverless/
+.fusebox/
+.dynamodb/
+
+# ============================================
+# LOGS
+# ============================================
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+debug.log
+error.log
+access.log
+
+# ============================================
+# OS FILES
+# ============================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ============================================
+# IDE & EDITORS
+# ============================================
+# VSCode
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.code-workspace
+
+# JetBrains (WebStorm, IntelliJ, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+.idea_modules/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+.sublime-gulp.cache
+
+# Vim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Eclipse
+.project
+.classpath
+.settings/
+.metadata/
+
+# ============================================
+# TEMPORARY FILES
+# ============================================
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+*.cache
+*.pid
+*.seed
+*.pid.lock
+
+# ============================================
+# TESTING & COVERAGE
+# ============================================
+coverage/
+.nyc_output/
+*.lcov
+.jest/
+test-results/
+playwright-report/
+cypress/videos/
+cypress/screenshots/
+
+# ============================================
+# DOCUMENTATION (generated)
+# ============================================
+docs/_build/
+site/
+
+# ============================================
+# PACKAGE MANAGERS
+# ============================================
+.npm/
+.yarn/
+.pnp.*
+
+# ============================================
+# CLAUDE CODE & AI
+# ============================================
+# Claude plans might contain sensitive discussions
+.claude/plans/
+# Keep MCP config example, but not the real one
+!.mcp.json.example
+
+# ============================================
+# ARCHIVES & COMPRESSED FILES
+# ============================================
+# Potrebbero contenere dati sensibili
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+# Exception: release archives
+!releases/*.zip
+
+# ============================================
+# MISC
+# ============================================
+.env.backup
+*.code-search
+.history/
+.vscode-test/
+*.vsix

@@ -1,0 +1,336 @@
+<!DOCTYPE html><html lang="it">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>Gestione Utenti | Axentia Dashboard</title>
+
+    <meta name="description" content="Gestione utenti e permessi per la dashboard Axentia.">
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+
+    <link rel="icon" href="favicon.ico" sizes="any">
+
+    <link rel="icon" type="image/png" href="assets/img/favicon/favicon-48x48.png" sizes="48x48">
+    <link rel="icon" type="image/png" href="assets/img/favicon/favicon-192x192.png" sizes="192x192">
+
+    <link rel="apple-touch-icon" href="assets/img/favicon/favicon-180x180.png">
+
+    <link rel="stylesheet" href="assets/css/style.css">
+
+    <link rel="preload" href="assets/fonts/source-sans-pro-v21-latin/source-sans-pro-v21-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/source-sans-pro-v21-latin/source-sans-pro-v21-latin-700.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/montserrat-v25-latin/montserrat-v25-latin-700.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/montserrat-v25-latin/montserrat-v25-latin-600.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/montserrat-v25-latin/montserrat-v25-latin-500.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/playfair-display-v30-latin/playfair-display-v30-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/playfair-display-v30-latin/playfair-display-v30-latin-italic.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/playfair-display-v30-latin/playfair-display-v30-latin-900.woff2" as="font" type="font/woff2" crossorigin>
+</head>
+<!-- Cookie Consent Scripts -->
+<script type="text/plain" data-cookiecategory="analytics" async src="https://www.googletagmanager.com/gtag/js?id=G-X6MMD9Q21B"></script>
+<script type="text/plain" data-cookiecategory="analytics">
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-X6MMD9Q21B');
+</script>
+<link rel="stylesheet" href="assets/css/cookieconsent.css">
+<script src="assets/js/cookieconsent.js"></script>
+<script src="assets/js/cookie-config.js"></script>
+<!-- End Cookie Consent Scripts -->
+
+<body>
+
+    <button id="mobile-toggle" class="hamburger-btn b-md-none">
+        <span></span><span></span><span></span>
+    </button>
+
+    <aside class="sidebar-bespoke" id="sidebar">
+        <div class="sidebar-header">
+            <a href="#" class="logo">
+                <img src="assets/img/logo.png" alt="Axentia">
+            </a>
+            <div class="sidebar-title Montserrat">Dashboard</div>
+        </div>
+
+        <div class="sidebar-inner">
+            <div class="nav-group">
+                <h5 class="nav-label">Analisi</h5>
+                <ul class="dash-nav">
+                    <li><a href="index.html">Performance Globali</a></li>
+                    <li><a href="report.html">Report Risparmio</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-group">
+                <h5 class="nav-label">Automazioni</h5>
+                <ul class="dash-nav">
+                    <li><a href="chat.html">Chatta con i tuoi agenti</a></li>
+                    <li><a href="flussi.html">I tuoi flussi</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-group">
+                <h5 class="nav-label">Impostazioni</h5>
+                <ul class="dash-nav">
+                    <li><a href="conoscenza.html">Fonti di Conoscenza</a></li>
+                    <li><a href="supporto.html">Supporto Tecnico</a></li>
+                </ul>
+            </div>
+
+            <!-- Admin Only Section -->
+            <div class="nav-group" data-role="admin" style="display: none;">
+                <h5 class="nav-label">Amministrazione</h5>
+                <ul class="dash-nav">
+                    <li><a href="utenti.html" class="active">Gestione Utenti</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="user-badge">
+                <span class="status-dot green"></span> Utente Demo
+            </div>
+        </div>
+    </aside>
+
+    <main class="dashboard-content">
+        <div class="section-heading">
+            <p style="text-transform: uppercase; letter-spacing: 2px; font-weight: 300;">Amministrazione</p>
+            <h1>Gestione Utenti</h1>
+        </div>
+
+        <!-- Access Denied Message (shown to non-admins) -->
+        <div id="accessDenied" class="kpi-card" style="display: none; text-align: center; padding: 3rem;">
+            <h2 style="color: #c00;">Accesso Negato</h2>
+            <p>Non hai i permessi per accedere a questa pagina.</p>
+            <a href="index.html" class="btn-primary" style="display: inline-block; margin-top: 1rem;">Torna alla Dashboard</a>
+        </div>
+
+        <!-- Admin Content -->
+        <div id="adminContent" style="display: none;">
+            <!-- Company Filter -->
+            <div id="companyFilterWrapper" class="company-filter-wrapper">
+                <label class="filter-label">Azienda:</label>
+                <div class="custom-company-dropdown">
+                    <div class="dropdown-trigger">
+                        <span id="currentCompanyName">Tutte le aziende</span>
+                        <svg viewBox="0 0 10 6" class="arrow"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                    </div>
+                    <div class="dropdown-menu" id="companyOptions"></div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="dash-filters">
+                <input type="text" id="filterSearch" class="filter-search" placeholder="Cerca utente...">
+
+                <select id="filterRole" class="filter-select">
+                    <option value="">Tutti i ruoli</option>
+                    <option value="admin">Admin</option>
+                    <option value="user">Utente</option>
+                </select>
+
+                <select id="filterStatus" class="filter-select">
+                    <option value="">Tutti gli stati</option>
+                    <option value="active">Attivi</option>
+                    <option value="inactive">Disattivati</option>
+                </select>
+
+                <button id="btnReset" class="btn-reset" title="Reset filtri" style="display: none;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                </button>
+
+                <button id="btnInviteUser" class="btn-primary" onclick="openInviteModal()">
+                    + Invita Utente
+                </button>
+            </div>
+
+            <!-- Users Table -->
+            <div class="chart-container-box" style="margin-top: 2rem;">
+                <div class="table-responsive">
+                    <table class="table-secondary" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Nome</th>
+                                <th>Azienda</th>
+                                <th>Ruolo</th>
+                                <th>Stato</th>
+                                <th>Ultimo Accesso</th>
+                                <th style="text-align: right;">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 2rem; color: #666;">
+                                    Caricamento utenti...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="row" style="margin-top: 2rem;">
+                <div class="col-1_3">
+                    <div class="kpi-card">
+                        <span class="kpi-label">Utenti Totali</span>
+                        <div class="kpi-value" id="statTotalUsers">0</div>
+                        <div class="kpi-sub">Registrati nel sistema</div>
+                    </div>
+                </div>
+                <div class="col-1_3">
+                    <div class="kpi-card">
+                        <span class="kpi-label">Utenti Attivi</span>
+                        <div class="kpi-value" id="statActiveUsers">0</div>
+                        <div class="kpi-sub">Account abilitati</div>
+                    </div>
+                </div>
+                <div class="col-1_3">
+                    <div class="kpi-card">
+                        <span class="kpi-label">Aziende</span>
+                        <div class="kpi-value" id="statCompanies">0</div>
+                        <div class="kpi-sub">Clienti registrati</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Invite User Modal -->
+        <div id="inviteModal" class="modal-overlay" style="display: none;">
+            <div class="modal-content">
+                <h2>Invita Nuovo Utente</h2>
+                <form id="inviteForm">
+                    <div class="inputs-grid">
+                        <div class="field-group">
+                            <label>Email *</label>
+                            <input type="email" name="email" required placeholder="nome@azienda.it">
+                        </div>
+
+                        <div class="field-group">
+                            <label>Nome Completo</label>
+                            <input type="text" name="display_name" maxlength="100" placeholder="Mario Rossi">
+                        </div>
+
+                        <div class="field-group">
+                            <label>Azienda *</label>
+                            <select name="company_id" id="inviteCompanySelect" required>
+                                <option value="">Seleziona azienda...</option>
+                            </select>
+                        </div>
+
+                        <div class="field-group">
+                            <label>Ruolo *</label>
+                            <select name="role" required>
+                                <option value="user">Utente</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+
+                        <div class="field-group" style="grid-column: 1 / -1;">
+                            <label>Endpoint n8n</label>
+                            <input type="url" name="n8n_endpoint" placeholder="https://cliente-n8n.axentia-automation.it">
+                            <small style="color: #666;">Lascia vuoto per usare l'endpoint dell'azienda</small>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn-modal btn-close" onclick="closeInviteModal()">Annulla</button>
+                        <button type="submit" class="btn-modal btn-execute">Invia Invito</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Edit User Modal -->
+        <div id="editUserModal" class="modal-overlay" style="display: none;">
+            <div class="modal-content">
+                <h2>Modifica Utente</h2>
+                <form id="editUserForm">
+                    <input type="hidden" name="user_id" id="editUserId">
+
+                    <div class="inputs-grid">
+                        <div class="field-group">
+                            <label>Email</label>
+                            <input type="email" name="email" id="editUserEmail" disabled style="background: #f5f5f5;">
+                        </div>
+
+                        <div class="field-group">
+                            <label>Nome Completo</label>
+                            <input type="text" name="display_name" id="editUserName" maxlength="100">
+                        </div>
+
+                        <div class="field-group">
+                            <label>Azienda</label>
+                            <select name="company_id" id="editCompanySelect">
+                                <option value="">Seleziona azienda...</option>
+                            </select>
+                        </div>
+
+                        <div class="field-group">
+                            <label>Ruolo</label>
+                            <select name="role" id="editUserRole">
+                                <option value="user">Utente</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+
+                        <div class="field-group">
+                            <label>Stato</label>
+                            <select name="is_active" id="editUserStatus">
+                                <option value="true">Attivo</option>
+                                <option value="false">Disattivato</option>
+                            </select>
+                        </div>
+
+                        <div class="field-group">
+                            <label>Endpoint n8n</label>
+                            <input type="url" name="n8n_endpoint" id="editUserEndpoint" placeholder="https://cliente-n8n.axentia-automation.it">
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn-modal btn-close" onclick="closeEditModal()">Annulla</button>
+                        <button type="submit" class="btn-modal btn-execute">Salva Modifiche</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <!-- Begin footer -->
+    <footer class="footer footer-fixed">
+        <div class="footer-container">
+            <div class="copyright">© 2025 - Axentia Lean Automation</div>
+            <div class="copyright" style="opacity: 0.5; margin-left: 1rem;">| Design by <a href="https://kovalweb.com" target="_blank" style="color: inherit; text-decoration: none;">KovalWeb</a></div>
+        </div>
+    </footer><!-- End footer -->
+
+    <div class="lines">
+        <div class="container">
+            <div class="row gy-0">
+                <div class="col offset-1_12"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="preloader active"><div></div></div>
+
+    <script src="assets/libs/lozad/lozad.min.js"></script>
+    <script src="assets/js/custom.js"></script>
+
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="assets/js/security-utils.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/users.js"></script>
+
+</body>
+</html>

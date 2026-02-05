@@ -1,0 +1,229 @@
+<!DOCTYPE html><html lang="it">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>Dashboard personale | Workflow Automation | Axentia Lean Automation</title>
+
+    <meta name="description" content="Esperti in Automazione Intelligente e Logica Lean in Piemonte. Guidiamo le imprese nell'adozione di IA e Workflow Automation per eliminare gli sprechi e generare vantaggi tangibili.">
+    
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+
+    <link rel="canonical" href="https://axentia-automation.it/" />
+        
+    <link rel="icon" href="favicon.ico" sizes="any">
+
+    <link rel="icon" type="image/png" href="assets/img/favicon/favicon-48x48.png" sizes="48x48">
+    <link rel="icon" type="image/png" href="assets/img/favicon/favicon-192x192.png" sizes="192x192">
+
+    <link rel="apple-touch-icon" href="assets/img/favicon/favicon-180x180.png">
+
+    <link rel="stylesheet" href="assets/css/style.css">
+    
+    <link rel="preload" href="assets/fonts/source-sans-pro-v21-latin/source-sans-pro-v21-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/source-sans-pro-v21-latin/source-sans-pro-v21-latin-700.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/montserrat-v25-latin/montserrat-v25-latin-700.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/montserrat-v25-latin/montserrat-v25-latin-600.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/montserrat-v25-latin/montserrat-v25-latin-500.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/playfair-display-v30-latin/playfair-display-v30-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/playfair-display-v30-latin/playfair-display-v30-latin-italic.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/playfair-display-v30-latin/playfair-display-v30-latin-900.woff2" as="font" type="font/woff2" crossorigin>
+</head>
+<!-- Cookie Consent Scripts -->
+<script type="text/plain" data-cookiecategory="analytics" async src="https://www.googletagmanager.com/gtag/js?id=G-X6MMD9Q21B"></script>
+<script type="text/plain" data-cookiecategory="analytics">
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-X6MMD9Q21B');
+</script>
+<link rel="stylesheet" href="assets/css/cookieconsent.css">
+<script src="assets/js/cookieconsent.js"></script>
+<script src="assets/js/cookie-config.js"></script>
+<!-- End Cookie Consent Scripts -->
+
+<body>
+
+    <button id="mobile-toggle" class="hamburger-btn b-md-none">
+        <span></span><span></span><span></span>
+    </button>
+
+    <aside class="sidebar-bespoke" id="sidebar">
+        <div class="sidebar-header">
+            <a href="#" class="logo">
+                <img src="assets/img/logo.png" alt="Axentia">
+            </a>
+            <div class="sidebar-title Montserrat">Dashboard</div>
+        </div>
+        
+        <div class="sidebar-inner">
+            <div class="nav-group">
+                <h5 class="nav-label">Analisi</h5>
+                <ul class="dash-nav">
+                    <li><a href="index.html">Performance Globali</a></li>
+                    <li><a href="report.html">Report Risparmio</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-group">
+                <h5 class="nav-label">Automazioni</h5>
+                <ul class="dash-nav">
+                    <li><a href="chat.html">Chatta con i tuoi agenti</a></li>
+                    <li><a href="flussi.html">I tuoi flussi</a></li>
+                </ul>
+            </div>
+            
+            <div class="nav-group">
+                <h5 class="nav-label">Impostazioni</h5>
+                <ul class="dash-nav">
+                    <li><a href="conoscenza.html" class="active">Fonti di Conoscenza</a></li>
+                    <li><a href="supporto.html">Supporto Tecnico</a></li>
+                </ul>
+            </div>
+
+            <!-- Admin Only Section -->
+            <div class="nav-group" data-role="admin" style="display: none;">
+                <h5 class="nav-label">Amministrazione</h5>
+                <ul class="dash-nav">
+                    <li><a href="utenti.html">Gestione Utenti</a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="sidebar-footer">
+            <div class="user-badge">
+                <span class="status-dot green"></span> Utente Demo
+            </div>
+        </div>
+    </aside>
+
+    <main class="dashboard-content">
+        <div class="section-heading">
+            <p style="text-transform: uppercase; letter-spacing: 2px; font-weight: 300;">Knowledge Base</p>
+            <h1>Fonti di Conoscenza</h1>
+        </div>
+        
+        <div class="kpi-card" style="border: 2px dashed var(--border); text-align: center; padding: 3rem;">
+            
+            <h5 class="nav-label">1. Seleziona l'Agente</h5>
+            <div class="custom-agent-dropdown" id="customAgentWrapper" style="margin-left: 43% !important; border: 1px solid var(--border); margin-bottom: 10px;">
+                <div class="dropdown-trigger">
+                    <span id="currentAgentName">CARICAMENTO...</span>
+                    <svg viewBox="0 0 10 6" class="arrow"><path d="M1 1l4 4 4-4" fill="none" stroke="black" stroke-width="2"/></svg>
+                </div>
+                <div class="dropdown-menu" id="agentOptions">
+                    </div>
+                <input type="hidden" id="agentSelect" value="">
+            </div>
+
+            <h5 class="nav-label">2. Carica i documenti</h5>
+            <p>Supportati: <strong>PDF, DOCX, TXT, CSV, XLSX</strong> (Max 10MB)</p>
+            <input type="file" id="fileInput" multiple style="display: none;" onchange="uploadFiles()">
+            <button id="uploadBtn" class="btn-upload-axentia" onclick="document.getElementById('fileInput').click()">
+                SFOGLIA FILE
+            </button>
+        </div>
+        
+        
+
+        <div class="row" style="padding-top: 40px;"> 
+            <div class="dash-filters" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <input type="text" id="filterSearch" class="filter-search" placeholder="Cerca file o agente...">
+                <select id="filterArea" class="filter-select">
+                    <option value="">Tutti i reparti</option>
+                </select>
+                <button id="btnReset" class="btn-reset" style="display:none;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                </button>
+            </div>
+            <div class="col-1_1">
+                <div class="chart-container-box">
+                    <h5 class="nav-label" style="margin-bottom: 20px;">Documenti Indicizzati</h5>
+                    
+                    <div class="table-responsive">
+                        <table class="kb-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome Documento</th>
+                                    <th>Area</th>
+                                    <th>Agente</th>
+                                    <th>Dimensione</th>
+                                    <th>Stato</th>
+                                    <th style="text-align: right;">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody id="kbTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="modalOverlay" class="modal-overlay">
+            <div class="modal-content">
+                <h2 id="modalTitle">ELIMINA DOCUMENTO</h2>
+                
+                <form id="dynamicWorkflowForm">
+                    <div id="dynamicInputsContainer" class="inputs-grid">
+                        </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn-modal btn-close" onclick="closeWorkflowModal()">
+                            Annulla
+                        </button>
+                        <button type="submit" class="btn-modal btn-execute">
+                            Prosegui
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Logica Toggle Mobile
+        const toggleBtn = document.getElementById('mobile-toggle');
+        const sidebar = document.getElementById('sidebar');
+        
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+            toggleBtn.classList.toggle('active');
+        });
+    </script>
+
+		<!-- Begin footer -->
+<footer class="footer footer-fixed">
+    <div class="footer-container">
+        <div class="copyright">© 2025 - Axentia Lean Automation</div><div class="copyright" style="opacity: 0.5; margin-left: 1rem;">| Design by <a href="https://kovalweb.com" target="_blank" style="color: inherit; text-decoration: none;">KovalWeb</a></div>
+    </div>
+</footer><!-- End footer -->
+
+<div class="lines">
+    <div class="container">
+        <div class="row gy-0">
+            <div class="col offset-1_12"></div>
+            
+        </div>
+    </div>
+</div>
+
+<div class="preloader active"><div></div></div>
+
+
+
+	</main>
+
+	<script src="assets/libs/lozad/lozad.min.js"></script>
+<script src="assets/js/custom.js"></script>
+<!-- Firebase Auth -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="assets/js/security-utils.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/dashboard.js"></script>
+
+
+</body>
+</html>

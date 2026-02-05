@@ -1,0 +1,287 @@
+<!DOCTYPE html><html lang="it">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>Supporto Tecnico | Axentia Dashboard</title>
+
+    <meta name="description" content="Supporto tecnico e gestione ticket per la dashboard Axentia.">
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+
+    <link rel="icon" href="favicon.ico" sizes="any">
+
+    <link rel="icon" type="image/png" href="assets/img/favicon/favicon-48x48.png" sizes="48x48">
+    <link rel="icon" type="image/png" href="assets/img/favicon/favicon-192x192.png" sizes="192x192">
+
+    <link rel="apple-touch-icon" href="assets/img/favicon/favicon-180x180.png">
+
+    <link rel="stylesheet" href="assets/css/style.css">
+
+    <link rel="preload" href="assets/fonts/source-sans-pro-v21-latin/source-sans-pro-v21-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/source-sans-pro-v21-latin/source-sans-pro-v21-latin-700.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/montserrat-v25-latin/montserrat-v25-latin-700.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/montserrat-v25-latin/montserrat-v25-latin-600.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/montserrat-v25-latin/montserrat-v25-latin-500.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/playfair-display-v30-latin/playfair-display-v30-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/playfair-display-v30-latin/playfair-display-v30-latin-italic.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/playfair-display-v30-latin/playfair-display-v30-latin-900.woff2" as="font" type="font/woff2" crossorigin>
+</head>
+<!-- Cookie Consent Scripts -->
+<script type="text/plain" data-cookiecategory="analytics" async src="https://www.googletagmanager.com/gtag/js?id=G-X6MMD9Q21B"></script>
+<script type="text/plain" data-cookiecategory="analytics">
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-X6MMD9Q21B');
+</script>
+<link rel="stylesheet" href="assets/css/cookieconsent.css">
+<script src="assets/js/cookieconsent.js"></script>
+<script src="assets/js/cookie-config.js"></script>
+<!-- End Cookie Consent Scripts -->
+
+<body>
+
+    <button id="mobile-toggle" class="hamburger-btn b-md-none">
+        <span></span><span></span><span></span>
+    </button>
+
+    <aside class="sidebar-bespoke" id="sidebar">
+        <div class="sidebar-header">
+            <a href="#" class="logo">
+                <img src="assets/img/logo.png" alt="Axentia">
+            </a>
+            <div class="sidebar-title Montserrat">Dashboard</div>
+        </div>
+
+        <div class="sidebar-inner">
+            <div class="nav-group">
+                <h5 class="nav-label">Analisi</h5>
+                <ul class="dash-nav">
+                    <li><a href="index.html">Performance Globali</a></li>
+                    <li><a href="report.html">Report Risparmio</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-group">
+                <h5 class="nav-label">Automazioni</h5>
+                <ul class="dash-nav">
+                    <li><a href="chat.html">Chatta con i tuoi agenti</a></li>
+                    <li><a href="flussi.html">I tuoi flussi</a></li>
+                </ul>
+            </div>
+
+            <div class="nav-group">
+                <h5 class="nav-label">Impostazioni</h5>
+                <ul class="dash-nav">
+                    <li><a href="conoscenza.html">Fonti di Conoscenza</a></li>
+                    <li><a href="supporto.html" class="active">Supporto Tecnico</a></li>
+                </ul>
+            </div>
+
+            <!-- Admin Only Section -->
+            <div class="nav-group" data-role="admin" style="display: none;">
+                <h5 class="nav-label">Amministrazione</h5>
+                <ul class="dash-nav">
+                    <li><a href="utenti.html">Gestione Utenti</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="user-badge">
+                <span class="status-dot green"></span> Utente Demo
+            </div>
+        </div>
+    </aside>
+
+    <main class="dashboard-content">
+        <div class="section-heading">
+            <p style="text-transform: uppercase; letter-spacing: 2px; font-weight: 300;">Assistenza Clienti</p>
+            <h1>Supporto Tecnico</h1>
+        </div>
+
+        <!-- Company Filter (Admin Only) -->
+        <div id="companyFilterWrapper" class="company-filter-wrapper" data-role="admin" style="display: none;">
+            <label class="filter-label">Azienda:</label>
+            <div class="custom-company-dropdown">
+                <div class="dropdown-trigger">
+                    <span id="currentCompanyName">Tutte le aziende</span>
+                    <svg viewBox="0 0 10 6" class="arrow"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </div>
+                <div class="dropdown-menu" id="companyOptions"></div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="dash-filters">
+            <input type="text" id="filterSearch" class="filter-search" placeholder="Cerca ticket...">
+
+            <select id="filterStatus" class="filter-select">
+                <option value="">Tutti gli stati</option>
+                <option value="open">Aperti</option>
+                <option value="in_progress">In Lavorazione</option>
+                <option value="resolved">Risolti</option>
+                <option value="closed">Chiusi</option>
+            </select>
+
+            <select id="filterPriority" class="filter-select">
+                <option value="">Tutte le priorita</option>
+                <option value="urgent">Urgente</option>
+                <option value="high">Alta</option>
+                <option value="medium">Media</option>
+                <option value="low">Bassa</option>
+            </select>
+
+            <button id="btnReset" class="btn-reset" title="Reset filtri" style="display: none;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+            </button>
+
+            <button id="btnNewTicket" class="btn-primary" onclick="openNewTicketModal()">
+                + Nuovo Ticket
+            </button>
+        </div>
+
+        <!-- Tickets Table -->
+        <div class="chart-container-box" style="margin-top: 2rem;">
+            <div class="table-responsive">
+                <table class="table-secondary" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Oggetto</th>
+                            <th data-role="admin" style="display: none;">Azienda</th>
+                            <th>Stato</th>
+                            <th>Priorita</th>
+                            <th>Data Apertura</th>
+                            <th style="text-align: right;">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ticketsTableBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 2rem; color: #666;">
+                                Caricamento ticket...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- New Ticket Modal -->
+        <div id="newTicketModal" class="modal-overlay" style="display: none;">
+            <div class="modal-content">
+                <h2>Nuovo Ticket di Supporto</h2>
+                <form id="newTicketForm">
+                    <div class="inputs-grid">
+                        <div class="field-group">
+                            <label>Oggetto *</label>
+                            <input type="text" name="subject" required maxlength="255" placeholder="Descrivi brevemente il problema">
+                        </div>
+
+                        <div class="field-group">
+                            <label>Categoria</label>
+                            <select name="category" class="filter-select">
+                                <option value="technical">Problema Tecnico</option>
+                                <option value="billing">Fatturazione</option>
+                                <option value="feature_request">Richiesta Funzionalita</option>
+                                <option value="other">Altro</option>
+                            </select>
+                        </div>
+
+                        <div class="field-group" >
+                            <label>Priorita</label>
+                            <select name="priority" class="filter-select">
+                                <option value="low">Bassa</option>
+                                <option value="medium" selected>Media</option>
+                                <option value="high">Alta</option>
+                                <option value="urgent">Urgente</option>
+                            </select>
+                        </div>
+
+                        <div class="field-group" style="grid-column: 1 / -1;">
+                            <label>Descrizione *</label>
+                            <textarea name="description" required rows="1" placeholder="Descrivi il problema in dettaglio..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn-modal btn-close" onclick="closeNewTicketModal()">Annulla</button>
+                        <button type="submit" class="btn-modal btn-execute">Invia Ticket</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Ticket Detail Modal -->
+        <div id="ticketDetailModal" class="modal-overlay" style="display: none;">
+            <div class="modal-content modal-wide">
+                <div class="ticket-header">
+                    <h2 id="ticketDetailTitle">Dettaglio Ticket</h2>
+                    <div id="ticketDetailMeta" class="ticket-meta"></div>
+                </div>
+
+                <div id="ticketMessages" class="ticket-messages">
+                    <!-- Messages loaded dynamically -->
+                </div>
+
+                <form id="ticketReplyForm" class="ticket-reply-form">
+                    <textarea name="message" required rows="3" placeholder="Scrivi una risposta..."></textarea>
+
+                    <!-- Admin-only: internal note checkbox -->
+                    <label class="checkbox-wrapper" data-role="admin" style="display: none;">
+                        <input type="checkbox" name="is_internal">
+                        <span>Nota interna (visibile solo agli admin)</span>
+                    </label>
+
+                    <div class="reply-actions">
+                        <!-- Admin-only: status change -->
+                        <select name="new_status" data-role="admin" style="display: none;">
+                            <option value="">Mantieni stato attuale</option>
+                            <option value="in_progress">Segna In Lavorazione</option>
+                            <option value="resolved">Segna Risolto</option>
+                            <option value="closed">Chiudi Ticket</option>
+                        </select>
+
+                        <button type="submit" class="btn-primary">Invia Risposta</button>
+                    </div>
+                </form>
+
+                <button class="btn-close-modal" onclick="closeTicketDetailModal()">x</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Begin footer -->
+    <footer class="footer footer-fixed">
+        <div class="footer-container">
+            <div class="copyright">© 2025 - Axentia Lean Automation</div>
+            <div class="copyright" style="opacity: 0.5; margin-left: 1rem;">| Design by <a href="https://kovalweb.com" target="_blank" style="color: inherit; text-decoration: none;">KovalWeb</a></div>
+        </div>
+    </footer><!-- End footer -->
+
+    <div class="lines">
+        <div class="container">
+            <div class="row gy-0">
+                <div class="col offset-1_12"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="preloader active"><div></div></div>
+
+    <script src="assets/libs/lozad/lozad.min.js"></script>
+    <script src="assets/js/custom.js"></script>
+
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="assets/js/security-utils.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/support.js"></script>
+
+</body>
+</html>
