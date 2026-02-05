@@ -122,8 +122,13 @@ const AuthManager = {
             const tokenResult = await this.currentUser.getIdTokenResult(true);
             this.idToken = tokenResult.token;
 
-            // Extract custom claims
-            const claims = tokenResult.claims;
+            let claims = tokenResult.claims;
+
+            // Controllo se i claims sono "nascosti" dentro customAttributes (comune in alcune risposte API)
+            // o se sono arrivati come stringa JSON
+            if (typeof claims.customAttributes === 'string') {
+                claims = JSON.parse(claims.customAttributes);
+            }
 
             // Get n8n endpoint from custom claims, fallback to main demo instance
             this.clientEndpoint = claims.n8n_endpoint
@@ -172,7 +177,7 @@ const AuthManager = {
         if (!this.isAdmin()) return;
 
         try {
-            const response = await fetch(this.getWebhookUrl('dashboard-api'), {
+            const response = await fetch(this.getWebhookUrl('user-management'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -296,7 +301,6 @@ const AuthManager = {
             userBadge.innerHTML = `
                 <span class="status-dot green"></span>
                 <span class="user-name">${SecurityUtils.escapeHtml(displayName)}</span>
-                <span class="role-badge ${roleClass}">${roleLabel}</span>
             `;
         }
 
