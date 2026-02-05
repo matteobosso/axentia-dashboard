@@ -45,6 +45,9 @@ const AuthManager = {
             firebase.initializeApp(firebaseConfig);
         }
 
+        // Check for token in URL (cross-domain auth)
+        this.handleCrossDomainAuth();
+
         // Listen for auth state changes
         firebase.auth().onAuthStateChanged(async (user) => {
             if (user) {
@@ -62,6 +65,33 @@ const AuthManager = {
 
         this.initialized = true;
         return this.authReadyPromise;
+    },
+
+    /**
+     * Handle cross-domain authentication via URL token
+     */
+    handleCrossDomainAuth: async function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        if (token) {
+            try {
+                // Sign in with the custom token passed from main website
+                await firebase.auth().signInWithCustomToken(token);
+
+                // Clean up URL (remove token parameter)
+                const cleanUrl = window.location.origin + window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+
+                console.log('[AuthManager] Cross-domain auth successful');
+            } catch (error) {
+                console.error('[AuthManager] Cross-domain auth failed:', error);
+                // Token might be an ID token, not custom token - try different approach
+                // For now, clear the URL parameter
+                const cleanUrl = window.location.origin + window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+        }
     },
 
     /**
@@ -388,10 +418,14 @@ const AuthManager = {
      * Redirect to login page on main website
      */
     redirectToLogin: function() {
-        // Don't redirect if we're already on the login page or in development
-        if (window.location.hostname === 'axentia-automation.it' ||
-            window.location.hostname === 'localhost' ||
-            window.location.hostname === '127.0.0.1') {
+        // Don't redirect if we're already on the login page, development, or dashboard subdomain
+        const hostname = window.location.hostname;
+        if (hostname === 'axentia-automation.it' ||
+            hostname === 'localhost' ||
+            hostname === '127.0.0.1' ||
+            hostname.endsWith('.axentia-automation.it')) {
+            // On dashboard subdomain without auth - show message instead of redirect loop
+            console.warn('[AuthManager] No authenticated user on subdomain');
             return;
         }
         window.location.href = 'https://axentia-automation.it/login.html';
