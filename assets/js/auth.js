@@ -415,20 +415,15 @@ const AuthManager = {
     },
 
     /**
-     * Redirect to login page on main website
+     * Redirect to login page
      */
     redirectToLogin: function() {
-        // Don't redirect if we're already on the login page, development, or dashboard subdomain
-        const hostname = window.location.hostname;
-        if (hostname === 'axentia-automation.it' ||
-            hostname === 'localhost' ||
-            hostname === '127.0.0.1' ||
-            hostname.endsWith('.axentia-automation.it')) {
-            // On dashboard subdomain without auth - show message instead of redirect loop
-            console.warn('[AuthManager] No authenticated user on subdomain');
+        // Don't redirect if already on login page
+        if (window.location.pathname.includes('login.html')) {
             return;
         }
-        window.location.href = 'https://axentia-automation.it/login.html';
+        // Redirect to local login page
+        window.location.href = 'login.html';
     },
 
     /**
