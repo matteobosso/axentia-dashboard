@@ -78,7 +78,7 @@
                 <h5 class="nav-label">Impostazioni</h5>
                 <ul class="dash-nav">
                     <li><a href="conoscenza.html">Fonti di Conoscenza</a></li>
-                    <li><a href="supporto.html" class="active">Supporto Tecnico</a></li>
+                    <li><a href="supporto.html" class="active">Supporto Tecnico<span id="supportBadge" class="nav-badge"></span></a></li>
                 </ul>
             </div>
 
@@ -93,8 +93,11 @@
 
         <div class="sidebar-footer">
             <div class="user-badge">
-                <span class="status-dot green"></span> Utente Demo
+                <span class="status-dot green"></span>
             </div>
+            <button id="logoutBtn" class="btn-logout">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
         </div>
     </aside>
 
@@ -177,6 +180,7 @@
         <div id="newTicketModal" class="modal-overlay" style="display: none;">
             <div class="modal-content">
                 <h2>Nuovo Ticket di Supporto</h2>
+                <div id="newTicketFeedback" class="feedback-message" style="display: none;"></div>
                 <form id="newTicketForm">
                     <div class="inputs-grid">
                         <div class="field-group">
@@ -253,6 +257,19 @@
                 </form>
 
                 <button class="btn-close-modal" onclick="closeTicketDetailModal()">x</button>
+            </div>
+        </div>
+
+        <!-- Delete Ticket Confirmation Modal -->
+        <div id="deleteTicketModal" class="modal-overlay" style="display: none;">
+            <div class="modal-content" style="max-width: 400px;">
+                <h2>Elimina Ticket</h2>
+                <p id="deleteTicketMessage" style="text-align: center; padding: 1rem 0;"></p>
+                <input type="hidden" id="deleteTicketId">
+                <div class="modal-footer">
+                    <button type="button" class="btn-modal btn-close" onclick="closeDeleteTicketModal()">Annulla</button>
+                    <button type="button" class="btn-modal btn-execute" style="background: var(--accent);" onclick="confirmDeleteTicket()">Elimina</button>
+                </div>
             </div>
         </div>
     </main>

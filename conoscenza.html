@@ -78,7 +78,7 @@
                 <h5 class="nav-label">Impostazioni</h5>
                 <ul class="dash-nav">
                     <li><a href="conoscenza.html" class="active">Fonti di Conoscenza</a></li>
-                    <li><a href="supporto.html">Supporto Tecnico</a></li>
+                    <li><a href="supporto.html">Supporto Tecnico<span id="supportBadge" class="nav-badge"></span></a></li>
                 </ul>
             </div>
 
@@ -93,8 +93,11 @@
         
         <div class="sidebar-footer">
             <div class="user-badge">
-                <span class="status-dot green"></span> Utente Demo
+                <span class="status-dot green"></span>
             </div>
+            <button id="logoutBtn" class="btn-logout">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
         </div>
     </aside>
 
@@ -103,7 +106,19 @@
             <p style="text-transform: uppercase; letter-spacing: 2px; font-weight: 300;">Knowledge Base</p>
             <h1>Fonti di Conoscenza</h1>
         </div>
-        
+
+        <!-- Company Filter (Admin Only) -->
+        <div id="companyFilterWrapper" class="company-filter-wrapper" data-role="admin" style="display: none;">
+            <label class="filter-label">Azienda:</label>
+            <div class="custom-company-dropdown">
+                <div class="dropdown-trigger">
+                    <span id="currentCompanyName">Tutte le aziende</span>
+                    <svg viewBox="0 0 10 6" class="arrow"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </div>
+                <div class="dropdown-menu" id="companyOptions"></div>
+            </div>
+        </div>
+
         <div class="kpi-card" style="border: 2px dashed var(--border); text-align: center; padding: 3rem;">
             
             <h5 class="nav-label">1. Seleziona l'Agente</h5>
@@ -139,8 +154,6 @@
             </div>
             <div class="col-1_1">
                 <div class="chart-container-box">
-                    <h5 class="nav-label" style="margin-bottom: 20px;">Documenti Indicizzati</h5>
-                    
                     <div class="table-responsive">
                         <table class="kb-table">
                             <thead>

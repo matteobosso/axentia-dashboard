@@ -244,3 +244,4 @@ site/
 .history/
 .vscode-test/
 *.vsix
+CLAUDE.md

@@ -26,8 +26,12 @@
             
             <h2 style="font-size: 1.25rem;">Dashboard Automazioni</h2>
 
-            <div id="loginError" class="login-error"></div>
-
+            <div id="loginError" class="feedback-message error" style="display: none;"></div>
+            <div id="resetPasswordPrompt" class="feedback-message info" style="display: none;">
+                Hai dimenticato la password?
+                <a href="#" id="resetPasswordLink">Reimposta password</a>
+            </div>
+            <div id="resetSuccess" class="feedback-message success" style="display: none;"></div>
             <form id="loginForm">
                 <div class="inputs-grid">
                     <div class="field-group">
@@ -65,23 +69,92 @@
 
         firebase.initializeApp(firebaseConfig);
 
+        // Track failed login attempts
+        const FAILED_ATTEMPTS_KEY = 'login_failed_attempts';
+        const MAX_ATTEMPTS = 3;
+
         firebase.auth().onAuthStateChanged((user) => {
-            if (user) window.location.href = 'http://dash.axentia-automation.it/index.html';
+            if (user) {
+                // Clear failed attempts on successful login
+                sessionStorage.removeItem(FAILED_ATTEMPTS_KEY);
+                window.location.href = 'index.html';
+            }
+        });
+
+        // Handle password reset
+        document.getElementById('resetPasswordLink').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const errorDiv = document.getElementById('loginError');
+            const resetPrompt = document.getElementById('resetPasswordPrompt');
+            const resetSuccess = document.getElementById('resetSuccess');
+
+            // Hide previous messages
+            errorDiv.style.display = 'none';
+            resetPrompt.style.display = 'none';
+            resetSuccess.style.display = 'none';
+
+            if (!email) {
+                errorDiv.textContent = "Inserisci la tua email per reimpostare la password.";
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                // Use Firebase Client SDK to send password reset email
+                await firebase.auth().sendPasswordResetEmail(email);
+
+                resetSuccess.textContent = "Email di reimpostazione password inviata! Controlla la tua casella di posta.";
+                resetSuccess.style.display = 'block';
+                // Clear failed attempts
+                sessionStorage.removeItem(FAILED_ATTEMPTS_KEY);
+            } catch (error) {
+                // Handle Firebase errors
+                let errorMessage = "Errore durante l'invio dell'email di reset.";
+
+                if (error.code === 'auth/user-not-found') {
+                    errorMessage = "Email non trovata.";
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = "Email non valida.";
+                } else if (error.code === 'auth/too-many-requests') {
+                    errorMessage = "Troppi tentativi. Riprova più tardi.";
+                }
+
+                errorDiv.textContent = errorMessage;
+                errorDiv.style.display = 'block';
+            }
         });
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const errorDiv = document.getElementById('loginError');
+            const resetPrompt = document.getElementById('resetPasswordPrompt');
+            const resetSuccess = document.getElementById('resetSuccess');
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            
-            errorDiv.classList.remove('visible');
+
+            // Hide previous messages
+            errorDiv.style.display = 'none';
+            resetPrompt.style.display = 'none';
+            resetSuccess.style.display = 'none';
 
             try {
                 await firebase.auth().signInWithEmailAndPassword(email, password);
+                // Success - onAuthStateChanged will handle redirect and clear attempts
             } catch (error) {
+                // Increment failed attempts
+                let attempts = parseInt(sessionStorage.getItem(FAILED_ATTEMPTS_KEY) || '0');
+                attempts++;
+                sessionStorage.setItem(FAILED_ATTEMPTS_KEY, attempts.toString());
+
+                // Show error message
                 errorDiv.textContent = "Credenziali non valide.";
-                errorDiv.classList.add('visible');
+                errorDiv.style.display = 'block';
+
+                // Show reset password prompt after MAX_ATTEMPTS
+                if (attempts >= MAX_ATTEMPTS) {
+                    resetPrompt.style.display = 'block';
+                }
             }
         });
     </script>

@@ -3,10 +3,23 @@
  * Gestisce Index, Report e Flussi in un unico file
  */
 
-// Dynamic webhook URL based on Firebase Auth claims
+// Dynamic webhook URL based on company endpoint
+// For admins: uses selected company's endpoint
+// For users: uses their company's endpoint
 const getWebhookUrl = () => {
-    if (typeof AuthManager !== 'undefined' && AuthManager.clientEndpoint) {
-        return `${AuthManager.clientEndpoint}/webhook/dashboard-api`;
+    if (typeof AuthManager !== 'undefined') {
+        // For admin with selected company, get that company's endpoint
+        if (AuthManager.isAdmin && AuthManager.isAdmin()) {
+            const selectedCompanyId = AuthManager.getActiveCompanyId();
+            if (selectedCompanyId && AuthManager.getCompanyEndpoint) {
+                const companyEndpoint = AuthManager.getCompanyEndpoint(selectedCompanyId);
+                return `${companyEndpoint}/webhook/dashboard-api`;
+            }
+        }
+        // For regular users, use their assigned endpoint
+        if (AuthManager.clientEndpoint) {
+            return `${AuthManager.clientEndpoint}/webhook/dashboard-api`;
+        }
     }
     // Fallback for development or when AuthManager not ready
     return sessionStorage.getItem('n8n_endpoint')
@@ -87,8 +100,8 @@ window.openWorkflowModal = function(workflowId, displayName, schema) {
         const description = parts[1] ? parts[1].trim() : null;
 
         const fieldWrapper = document.createElement('div');
-        fieldWrapper.className = `field-group`;
-        
+        fieldWrapper.className = field.type === 'boolean' ? 'field-group field-group-boolean' : 'field-group';
+
         let labelHtml = `
             <div class="label-wrapper">
                 <label>${techId}${field.required ? '*' : ''}</label>
@@ -104,7 +117,14 @@ window.openWorkflowModal = function(workflowId, displayName, schema) {
                     <div class="file-name-preview" id="preview-${techId}"></div>
                 </div>`;
         } else if (field.type === 'boolean') {
-            inputHtml = `<label class="switch"><input type="checkbox" name="${techId}" class="workflow-input"><span class="slider round"></span></label>`;
+            const toggleId = `toggle-${techId}-${Date.now()}`;
+            inputHtml = `
+                <div class="boolean-toggle">
+                    <input type="checkbox" name="${techId}" class="workflow-input boolean-input" id="${toggleId}">
+                    <label for="${toggleId}" class="toggle-switch">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>`;
         } else {
             inputHtml = `<input type="${field.type === 'number' ? 'number' : 'text'}" name="${techId}" ${field.required ? 'required' : ''} class="workflow-input">`;
         }
@@ -216,7 +236,7 @@ window.closeWorkflowModal = function() {
     document.getElementById('modalOverlay').style.display = 'none';
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     // Rilevamento elementi DOM
     const kpiContainer = document.getElementById('kpiOre');
     const reportTable = document.getElementById('reportTableBody');
@@ -224,6 +244,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const filterPeriod = document.getElementById('filterPeriod');
     const agentSelect = document.getElementById('agentSelect');
 
+    // BUGFIX: Wait for auth to be ready before loading data
+    // This ensures AuthManager.selectedCompanyId is properly initialized from sessionStorage
+    // Otherwise, getActiveCompanyId() defaults to first company (Axentia) while dropdown shows cached selection
+    if (typeof AuthManager !== 'undefined') {
+        await AuthManager.waitForAuth();
+    }
 
     // 1. Inizializzazione dati
     if (kpiContainer || reportTable) {
@@ -232,6 +258,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (workflowGrid) {
         // Se siamo in Flussi, carichiamo le card dei workflow
         initDashboard();
+    } else if (document.getElementById('kbTableBody')) {
+        // Se siamo in Conoscenza, carichiamo la knowledge base
+        loadKnowledgeBase();
     }
     if (agentSelect) {
         initAgents();
@@ -254,6 +283,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Knowledge base page
         if (document.getElementById('kbTableBody') && typeof loadKnowledgeBase === 'function') {
             loadKnowledgeBase();
+        }
+        // Chat page - reload agents for selected company
+        if (document.getElementById('agentSelect')) {
+            initAgents();
         }
     });
 });
@@ -306,15 +339,13 @@ async function initAgents() {
                 `<div class="agent-option" data-url="${SecurityUtils.escapeAttribute(a.webhook_path)}">${SecurityUtils.escapeHtml(a.display_name)}</div>`
             ).join('');
 
-            // Se non c'è un agente selezionato, seleziona il primo
-            if (!hiddenInput.value) {
-                triggerName.textContent = agents[0].display_name;
-                hiddenInput.value = agents[0].webhook_path;
-                
-                // Se siamo in conoscenza.html, carica subito la tabella
-                if (typeof loadKnowledgeBase === 'function') {
-                    loadKnowledgeBase();
-                }
+            // Seleziona sempre il primo agente
+            triggerName.textContent = agents[0].display_name;
+            hiddenInput.value = agents[0].webhook_path;
+
+            // Se siamo in conoscenza.html, carica subito la tabella
+            if (typeof loadKnowledgeBase === 'function') {
+                loadKnowledgeBase();
             }
 
             // Aggiungi listener alle opzioni appena create
@@ -380,7 +411,21 @@ async function initReport() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
         });
-        allData = await response.json();
+
+        // Handle empty or invalid response
+        const text = await response.text();
+        if (!text || text.trim() === '') {
+            console.log('[initReport] Empty response - no data found for period:', periodo);
+            allData = [];
+        } else {
+            try {
+                allData = JSON.parse(text);
+            } catch (parseError) {
+                console.error('[initReport] JSON parse error:', parseError);
+                allData = [];
+            }
+        }
+
         populateAreaFilter();
 
         // CONTROLLO PRELOADER: Aspettiamo che il sito sia visibile
@@ -393,6 +438,8 @@ async function initReport() {
         }
     } catch (error) {
         console.error("Errore Report:", error);
+        allData = [];
+        renderUIParts(allData);
     }
 }
 
@@ -407,12 +454,27 @@ async function initDashboard() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
         });
-        allData = await response.json();
-        
+
+        // Handle empty or invalid response
+        const text = await response.text();
+        if (!text || text.trim() === '') {
+            console.log('[initDashboard] Empty response - no workflows found');
+            allData = [];
+        } else {
+            try {
+                allData = JSON.parse(text);
+            } catch (parseError) {
+                console.error('[initDashboard] JSON parse error:', parseError);
+                allData = [];
+            }
+        }
+
         populateAreaFilter();
         renderWorkflows(allData);
     } catch (error) {
         console.error("Errore caricamento Workflow:", error);
+        allData = [];
+        renderWorkflows(allData);
     }
 }
 
@@ -420,6 +482,41 @@ async function initDashboard() {
  * Distribuisce i dati ai componenti visibili nella pagina corrente
  */
 function renderUIParts(data) {
+    // Handle empty data
+    if (!data || data.length === 0) {
+        // 1. Reset KPI to zero
+        if (document.getElementById('kpiOre')) {
+            document.getElementById('kpiOre').innerHTML = `0<span class="unit">h</span>`;
+            document.getElementById('kpiEsecuzioni').textContent = '0';
+            document.getElementById('kpiRoi').textContent = '€ 0';
+        }
+
+        // 2. Show "no data" message in table
+        const tbody = document.getElementById('reportTableBody');
+        if (tbody) {
+            tbody.style.opacity = '1';
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 3rem; color: #888; font-style: italic;">
+                        Nessun dato trovato per il periodo selezionato
+                    </td>
+                </tr>`;
+        }
+
+        // 3. Clear totals row
+        const tfoot = document.getElementById('reportTableTotal');
+        if (tfoot) {
+            tfoot.innerHTML = '';
+        }
+
+        // 4. Show empty charts (with axes but no data)
+        if (document.getElementById('barChart')) {
+            updateCharts([]);
+        }
+
+        return;
+    }
+
     let totaleMinuti = 0;
     let totaleEsecuzioni = 0;
 
@@ -444,7 +541,7 @@ function renderUIParts(data) {
     if (tbody) {
         // 1. Reset immediato per sicurezza
         tbody.style.opacity = '0';
-        tbody.style.transition = 'none'; 
+        tbody.style.transition = 'none';
 
         // 2. Inserimento dati
         tbody.innerHTML = data.map((item, index) => {
@@ -460,7 +557,7 @@ function renderUIParts(data) {
                     <td><strong>€ ${SecurityUtils.escapeHtml(r)}</strong></td>
                 </tr>`;
         }).join('');
-        
+
         // 3. Trigger animazione dopo un brevissimo delay
         requestAnimationFrame(() => {
             tbody.style.transition = 'opacity 1.2s ease-in-out';
@@ -487,7 +584,7 @@ function renderUIParts(data) {
         animateValue('kpiRoi', 0, roiTotaleNumerico, 2000, true);
     }
 
-    
+
 
     // 4. Grafici (Index)
     if (document.getElementById('barChart')) updateCharts(data);
@@ -598,8 +695,25 @@ function updateCharts(data) {
 function renderWorkflows(data) {
     const container = document.getElementById('workflowContainer');
     if (!container) return;
-    
+
+    // Handle empty data
+    if (!data || data.length === 0) {
+        container.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: #888; font-style: italic;">
+                Nessun workflow trovato
+            </div>`;
+        return;
+    }
+
     const executableFlows = data.filter(flow => flow.full_schema !== null);
+
+    if (executableFlows.length === 0) {
+        container.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: #888; font-style: italic;">
+                Nessun workflow eseguibile trovato
+            </div>`;
+        return;
+    }
 
     container.innerHTML = executableFlows.map(w => `
         <div class="case-item span-2-1">
@@ -620,10 +734,29 @@ function renderWorkflows(data) {
 function populateAreaFilter() {
     const select = document.getElementById('filterArea');
     if (!select) return;
-    const aree = [...new Set(allData.map(item => item.area))].sort();
+
+    // Filter out null/undefined/empty areas and get unique values (case-insensitive)
+    const areaMap = new Map();
+    allData.forEach(item => {
+        if (item.area && item.area.trim() !== '') {
+            const key = item.area.trim().toLowerCase();
+            if (!areaMap.has(key)) {
+                areaMap.set(key, item.area.trim()); // Store original case
+            }
+        }
+    });
+
+    const aree = [...areaMap.values()].sort();
     const current = select.value;
-    select.innerHTML = '<option value="">Tutti i reparti</option>' + aree.map(a => `<option value="${a}">${a}</option>`).join('');
-    select.value = current;
+
+    // Use lowercase value for consistent filtering
+    select.innerHTML = '<option value="">Tutti i reparti</option>' +
+        aree.map(a => `<option value="${SecurityUtils.escapeAttribute(a.toLowerCase())}">${SecurityUtils.escapeHtml(a)}</option>`).join('');
+
+    // Restore previous selection if it still exists
+    if (current && [...select.options].some(opt => opt.value === current)) {
+        select.value = current;
+    }
 }
 
 function applyUniversalFilters() {
@@ -631,20 +764,49 @@ function applyUniversalFilters() {
     const area = document.getElementById('filterArea')?.value || "";
     const btnReset = document.getElementById('btnReset');
 
+    // DEBUG: Verifica dati
+    console.log('[Filter] search:', search, 'area:', area);
+    console.log('[Filter] allData count:', allData?.length || 0);
+    if (allData?.length > 0) {
+        console.log('[Filter] Sample areas in allData:', allData.slice(0, 3).map(i => i.area));
+    }
+
     if (btnReset) btnReset.style.display = (search !== "" || area !== "") ? "flex" : "none";
 
-    // --- LOGICA REPORT (Tabella Risparmi / KPI) ---
-    const reportTable = document.getElementById('reportTableBody');
-    if (reportTable) {
-        // Filtriamo SOLO l'array degli agenti (allData)
-        const filteredReports = allData.filter(item => {
+    // Helper: filtra i dati in base a search e area
+    const filterReportData = () => {
+        return allData.filter(item => {
             const matchesSearch = (item.display_name || "").toLowerCase().includes(search);
-            const matchesArea = area === "" || item.area === area;
+            // Compare areas case-insensitively and handle null/undefined
+            const itemArea = (item.area || "").trim().toLowerCase();
+            const filterArea = area.trim().toLowerCase();
+            const matchesArea = filterArea === "" || itemArea === filterArea;
             return matchesSearch && matchesArea;
         });
-        // Passiamo i dati filtrati alla TUA funzione originale
-        renderUIParts(filteredReports); 
-        return; // Esci, non serve controllare altro
+    };
+
+    // --- LOGICA INDEX (solo KPI + Grafici, senza tabella report) ---
+    const hasKpiOnly = document.getElementById('kpiOre') && !document.getElementById('reportTableBody');
+    if (hasKpiOnly) {
+        const filteredReports = filterReportData();
+        console.log('[Filter] index.html - filteredReports count:', filteredReports.length);
+        console.log('[Filter] filteredReports data:', filteredReports.map(i => ({
+            name: i.display_name,
+            area: i.area,
+            minutes: i.total_minutes,
+            executions: i.total_executions
+        })));
+        renderUIParts(filteredReports);
+        return;
+    }
+
+    // --- LOGICA REPORT (Tabella Risparmi + totali) ---
+    const reportTable = document.getElementById('reportTableBody');
+    if (reportTable) {
+        const filteredReports = filterReportData();
+        console.log('[Filter] report.html - filteredReports count:', filteredReports.length);
+        renderUIParts(filteredReports);
+        return;
     }
 
     // --- LOGICA CONOSCENZA (Tabella File) ---
@@ -652,15 +814,30 @@ function applyUniversalFilters() {
     if (kbTable && window.allKBData) {
         const filteredKB = window.allKBData.filter(file => {
             // BUGFIX: Verifica che allData esista e sia popolato prima di cercare
-            const agent = (allData && allData.length > 0) 
+            const agent = (allData && allData.length > 0)
                 ? allData.find(a => a.id === file.agent_id) || { display_name: '', area: '' }
                 : { display_name: '', area: '' };
-            const matchesSearch = file.name.toLowerCase().includes(search) || 
+            const matchesSearch = file.name.toLowerCase().includes(search) ||
                                 agent.display_name.toLowerCase().includes(search);
             const matchesArea = area === "" || agent.area === area;
             return matchesSearch && matchesArea;
         });
         renderKBTable(filteredKB);
+        return;
+    }
+
+    // --- LOGICA FLUSSI (Workflow Cards) ---
+    const workflowGrid = document.getElementById('workflowContainer');
+    if (workflowGrid) {
+        const filteredWorkflows = allData.filter(item => {
+            const matchesSearch = (item.display_name || "").toLowerCase().includes(search);
+            // Compare areas case-insensitively and handle null/undefined
+            const itemArea = (item.area || "").trim().toLowerCase();
+            const filterArea = area.trim().toLowerCase();
+            const matchesArea = filterArea === "" || itemArea === filterArea;
+            return matchesSearch && matchesArea;
+        });
+        renderWorkflows(filteredWorkflows);
     }
 }
 
@@ -764,10 +941,13 @@ function renderKBTable(data) {
                 <td><span class="badge-area">${SecurityUtils.escapeHtml(agent.area)}</span></td>
                 <td>${SecurityUtils.escapeHtml(agent.display_name)}</td>
                 <td>${SecurityUtils.escapeHtml(sizeDisplay)}</td>
-                <td><span class="status-badge green" style="margin-left: 79%; margin-top: -7px;">Pronto</span></td>
+                <td><span class="status-badge status-active">Pronto</span></td>
                 <td style="text-align: right;">
-                    <button onclick="confirmDeleteFile('${SecurityUtils.escapeAttribute(file.name)}')" class="btn-delete-icon" title="Elimina">
-                        <i class="fas fa-trash"></i> Elimina
+                    <button onclick="confirmDeleteFile('${SecurityUtils.escapeAttribute(file.name)}')" class="btn-action btn-danger" title="Elimina">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
                     </button>
                 </td>
             </tr>

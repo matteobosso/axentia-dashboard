@@ -91,7 +91,7 @@
                 <h5 class="nav-label">Impostazioni</h5>
                 <ul class="dash-nav">
                     <li><a href="conoscenza.html">Fonti di Conoscenza</a></li>
-                    <li><a href="supporto.html">Supporto Tecnico</a></li>
+                    <li><a href="supporto.html">Supporto Tecnico<span id="supportBadge" class="nav-badge"></span></a></li>
                 </ul>
             </div>
 
@@ -106,8 +106,11 @@
         
         <div class="sidebar-footer">
             <div class="user-badge">
-                <span class="status-dot green"></span> Utente Demo
+                <span class="status-dot green"></span>
             </div>
+            <button id="logoutBtn" class="btn-logout">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
         </div>
     </aside>
 
@@ -115,6 +118,18 @@
         <div class="section-heading">
             <p style="text-transform: uppercase; letter-spacing: 2px; font-weight: 300;">Automazioni Intelligenti</p>
             <h1 style="mrgin-bottom: 0;">Chatta con i tuoi agenti</h1>
+        </div>
+
+        <!-- Company Filter (Admin Only) -->
+        <div id="companyFilterWrapper" class="company-filter-wrapper" data-role="admin" style="display: none; margin-top: -63px; overflow: visible; z-index: 100;">
+            <label class="filter-label">Azienda:</label>
+            <div class="custom-company-dropdown">
+                <div class="dropdown-trigger">
+                    <span id="currentCompanyName">Tutte le aziende</span>
+                    <svg viewBox="0 0 10 6" class="arrow"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </div>
+                <div class="dropdown-menu" id="companyOptions"></div>
+            </div>
         </div>
 
         <div class="chat-window-container" style="flex: 1; position: relative; overflow: hidden;">

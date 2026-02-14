@@ -124,10 +124,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Recupera il path (es. "chat") dall'input hidden
         const webhookPath = document.getElementById('agentSelect').value;
-        // Costruisce l'URL completo usando AuthManager per endpoint dinamico
-        const fullUrl = typeof AuthManager !== 'undefined'
-            ? AuthManager.getWebhookUrl(webhookPath)
-            : `https://main-n8n.axentia-automation.it/webhook/${webhookPath}`;
+        // Costruisce l'URL completo - gestisce admin con company selezionata
+        const fullUrl = (() => {
+            if (typeof AuthManager !== 'undefined') {
+                // Admin con company selezionata: usa l'endpoint di quella company
+                if (AuthManager.isAdmin && AuthManager.isAdmin()) {
+                    const selectedCompanyId = AuthManager.getActiveCompanyId();
+                    if (selectedCompanyId && AuthManager.getCompanyEndpoint) {
+                        return `${AuthManager.getCompanyEndpoint(selectedCompanyId)}/webhook/${webhookPath}`;
+                    }
+                }
+                // Utenti normali: usa il metodo standard
+                return AuthManager.getWebhookUrl(webhookPath);
+            }
+            return `https://main-n8n.axentia-automation.it/webhook/${webhookPath}`;
+        })();
 
         if (!text && !file) return;
         if (!webhookPath) return console.error("Agente non configurato");

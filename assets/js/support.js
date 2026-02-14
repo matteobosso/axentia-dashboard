@@ -3,6 +3,77 @@
  * Handles ticket CRUD operations and messaging
  */
 
+/**
+ * Helper functions for modal feedback
+ */
+function showModalFeedback(feedbackId, message, type = 'success') {
+    const feedbackEl = document.getElementById(feedbackId);
+    if (!feedbackEl) return;
+
+    feedbackEl.className = `feedback-message ${type}`;
+    feedbackEl.textContent = message;
+    feedbackEl.style.display = 'block';
+
+    // Auto-hide success messages after 4 seconds
+    if (type === 'success') {
+        setTimeout(() => hideModalFeedback(feedbackId), 4000);
+    }
+}
+
+function hideModalFeedback(feedbackId) {
+    const feedbackEl = document.getElementById(feedbackId);
+    if (feedbackEl) {
+        feedbackEl.style.display = 'none';
+    }
+}
+
+/**
+ * Show global toast notification
+ */
+function showToast(message, type = 'success') {
+    // Create or reuse toast element
+    let toast = document.getElementById('globalToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'globalToast';
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            max-width: 350px;
+            padding: 15px 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: opacity 0.3s, transform 0.3s;
+            opacity: 0;
+            transform: translateY(-10px);
+        `;
+        document.body.appendChild(toast);
+    }
+
+    // Set message and style
+    toast.className = `feedback-message ${type}`;
+    toast.textContent = message;
+    toast.style.display = 'block';
+
+    // Trigger animation
+    setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+    }, 10);
+
+    // Auto-hide after 4 seconds
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(() => {
+            toast.style.display = 'none';
+        }, 300);
+    }, 4000);
+}
+
 const SupportManager = {
     tickets: [],
     currentTicketId: null,
@@ -16,11 +87,13 @@ const SupportManager = {
      * Initialize support page
      */
     init: async function() {
-        // Wait for auth to be ready
-        if (!AuthManager.isAuthenticated) {
-            window.addEventListener('authReady', () => this.initAfterAuth());
-            return;
+        // Attendi che AuthManager sia pronto (usando la Promise)
+        const isAuthenticated = await AuthManager.waitForAuth();
+
+        if (!isAuthenticated) {
+            return; // L'utente verrà rediretto dalla pagina di login
         }
+
         this.initAfterAuth();
     },
 
@@ -128,20 +201,32 @@ const SupportManager = {
         `;
 
         try {
-            const endpoint = AuthManager.clientEndpoint || 'https://main-n8n.axentia-automation.it';
             const token = await AuthManager.getIdToken();
 
             const requestBody = {
                 action: 'list_tickets'
             };
 
-            // Add company filter for admin
+            // Add company filter
             const activeCompanyId = AuthManager.getActiveCompanyId();
-            if (activeCompanyId) {
-                requestBody.company_id = activeCompanyId;
-            }
+            const firebaseUid = AuthManager.currentUser?.uid;
 
-            const response = await fetch(`${endpoint}/webhook/support-api`, {
+            console.log('[Support] Debug:', {
+                isAdmin: AuthManager.isAdmin(),
+                companyId: AuthManager.companyId,
+                activeCompanyId: activeCompanyId,
+                selectedCompanyId: AuthManager.selectedCompanyId,
+                firebaseUid: firebaseUid
+            });
+
+            // Always pass both params (empty string = no filter)
+            requestBody.company_id = activeCompanyId || '-';
+            requestBody.firebase_uid = (!AuthManager.isAdmin() && firebaseUid) ? firebaseUid : '-';
+
+            console.log('[Support] Request body:', requestBody);
+
+            // Support API is centralized on main-n8n
+            const response = await fetch(AuthManager.getCentralizedApiUrl('support-api'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -155,8 +240,10 @@ const SupportManager = {
             }
 
             const data = await response.json();
-            this.tickets = data.tickets || [];
+            // Filter out invalid/empty tickets (when API returns [{}, null, etc.])
+            this.tickets = (data.tickets || []).filter(t => t && t.ticket_id);
             this.renderTickets();
+            this.updateBadge();
 
         } catch (error) {
             console.error('Error loading tickets:', error);
@@ -194,8 +281,8 @@ const SupportManager = {
         if (filteredTickets.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 2rem; color: #666;">
-                        ${this.tickets.length === 0 ? 'Nessun ticket trovato.' : 'Nessun ticket corrisponde ai filtri.'}
+                    <td colspan="7" style="text-align: center; padding: 2rem; color: #666; font-style: italic;">
+                        ${this.tickets.length === 0 ? 'Nessun ticket trovato' : 'Nessun ticket corrisponde ai filtri'}
                     </td>
                 </tr>
             `;
@@ -234,6 +321,14 @@ const SupportManager = {
                                 <circle cx="12" cy="12" r="3"></circle>
                             </svg>
                         </button>
+                        ${isAdmin ? `
+                        <button class="btn-action btn-danger" onclick="SupportManager.confirmDeleteTicket('${SecurityUtils.escapeAttribute(ticket.ticket_id)}', '${SecurityUtils.escapeAttribute(ticket.subject)}')" title="Elimina" style="margin-left: 0.5rem;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                        ` : ''}
                     </td>
                 </tr>
             `;
@@ -305,10 +400,10 @@ const SupportManager = {
         messagesEl.innerHTML = '<div style="text-align: center; padding: 2rem;">Caricamento messaggi...</div>';
 
         try {
-            const endpoint = AuthManager.clientEndpoint || 'https://main-n8n.axentia-automation.it';
             const token = await AuthManager.getIdToken();
 
-            const response = await fetch(`${endpoint}/webhook/support-api`, {
+            // Support API is centralized on main-n8n
+            const response = await fetch(AuthManager.getCentralizedApiUrl('support-api'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -364,8 +459,13 @@ const SupportManager = {
             </div>
         `;
 
+        // Filter out internal notes for non-admin users
+        const visibleMessages = messages
+            ? (AuthManager.isAdmin() ? messages : messages.filter(msg => !msg.is_internal))
+            : [];
+
         // Render messages
-        if (!messages || messages.length === 0) {
+        if (visibleMessages.length === 0) {
             messagesEl.innerHTML = `
                 <div class="ticket-message">
                     <div class="message-header">
@@ -376,7 +476,7 @@ const SupportManager = {
                 </div>
             `;
         } else {
-            messagesEl.innerHTML = messages.map(msg => {
+            messagesEl.innerHTML = visibleMessages.map(msg => {
                 const msgDate = new Date(msg.created_at).toLocaleDateString('it-IT', {
                     day: '2-digit',
                     month: 'short',
@@ -400,6 +500,12 @@ const SupportManager = {
 
         // Scroll to bottom
         messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        // Mark ticket as seen (save message count for badge tracking)
+        // Use visible messages count so internal notes don't affect user's badge
+        const messageCount = visibleMessages.length;
+        this.saveLastSeen(ticket.ticket_id, messageCount);
+        this.updateBadge();
     },
 
     /**
@@ -417,15 +523,28 @@ const SupportManager = {
 
         try {
             const formData = new FormData(form);
-            const endpoint = AuthManager.clientEndpoint || 'https://main-n8n.axentia-automation.it';
             const token = await AuthManager.getIdToken();
+
+            // Get user data from AuthManager
+            const companyId = AuthManager.getActiveCompanyId() || AuthManager.companyId;
+            const userId = AuthManager.currentUser?.uid;
+
+            if (!companyId) {
+                throw new Error('Nessuna azienda associata al tuo account');
+            }
+
+            if (!userId) {
+                throw new Error('Sessione non valida. Effettua nuovamente il login');
+            }
 
             const requestBody = {
                 action: 'create_ticket',
                 subject: formData.get('subject'),
                 description: formData.get('description'),
                 category: formData.get('category'),
-                priority: formData.get('priority')
+                priority: formData.get('priority'),
+                company_id: companyId,
+                user_id: userId
             };
 
             // Validate inputs
@@ -437,7 +556,8 @@ const SupportManager = {
                 throw new Error('Priorita non valida');
             }
 
-            const response = await fetch(`${endpoint}/webhook/support-api`, {
+            // Support API is centralized on main-n8n
+            const response = await fetch(AuthManager.getCentralizedApiUrl('support-api'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -452,14 +572,14 @@ const SupportManager = {
             }
 
             // Success
-            closeNewTicketModal();
             form.reset();
             this.loadTickets();
-            alert('Ticket creato con successo!');
+            showModalFeedback('newTicketFeedback', 'Ticket creato con successo!', 'success');
+            setTimeout(() => closeNewTicketModal(), 2000);
 
         } catch (error) {
             console.error('Error creating ticket:', error);
-            alert('Errore: ' + error.message);
+            showModalFeedback('newTicketFeedback', 'Errore: ' + error.message, 'error');
         } finally {
             submitBtn.disabled = false;
             submitBtn.textContent = originalText;
@@ -483,13 +603,14 @@ const SupportManager = {
 
         try {
             const formData = new FormData(form);
-            const endpoint = AuthManager.clientEndpoint || 'https://main-n8n.axentia-automation.it';
             const token = await AuthManager.getIdToken();
 
             const requestBody = {
                 action: 'add_message',
                 ticket_id: this.currentTicketId,
-                message: formData.get('message')
+                message: formData.get('message'),
+                user_id: AuthManager.currentUser?.uid,
+                author_name: AuthManager.currentUser?.displayName || 'Utente'
             };
 
             // Admin-only fields
@@ -509,7 +630,8 @@ const SupportManager = {
                 throw new Error('Inserisci un messaggio');
             }
 
-            const response = await fetch(`${endpoint}/webhook/support-api`, {
+            // Support API is centralized on main-n8n
+            const response = await fetch(AuthManager.getCentralizedApiUrl('support-api'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -535,6 +657,99 @@ const SupportManager = {
             submitBtn.disabled = false;
             submitBtn.textContent = originalText;
         }
+    },
+
+    /**
+     * Confirm ticket deletion (admin only)
+     */
+    confirmDeleteTicket: function(ticketId, ticketSubject) {
+        if (!AuthManager.isAdmin()) return;
+
+        document.getElementById('deleteTicketId').value = ticketId;
+        document.getElementById('deleteTicketMessage').innerHTML = `Sei sicuro di voler eliminare il ticket <strong>${SecurityUtils.escapeHtml(ticketSubject)}</strong>?<br><small style="color: #c00;">Questa azione è irreversibile e cancellerà anche tutti i messaggi associati.</small>`;
+        document.getElementById('deleteTicketModal').style.display = 'flex';
+    },
+
+    /**
+     * Delete ticket (admin only)
+     */
+    deleteTicket: async function(ticketId) {
+        if (!AuthManager.isAdmin()) return;
+
+        try {
+            const token = await AuthManager.getIdToken();
+
+            const response = await fetch(AuthManager.getCentralizedApiUrl('support-api'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    action: 'delete_ticket',
+                    ticket_id: ticketId
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `HTTP ${response.status}`);
+            }
+
+            // Close detail modal if open
+            if (this.currentTicketId === ticketId) {
+                closeTicketDetailModal();
+            }
+
+            // Reload tickets
+            this.loadTickets();
+            showToast('Ticket eliminato con successo!', 'success');
+
+        } catch (error) {
+            console.error('Error deleting ticket:', error);
+            showToast('Errore: ' + error.message, 'error');
+        }
+    },
+
+    /**
+     * Save last seen message count for a ticket
+     */
+    saveLastSeen: function(ticketId, messageCount) {
+        const uid = AuthManager.currentUser?.uid;
+        if (!uid) return;
+        const key = `ticket_seen_${uid}`;
+        const seen = JSON.parse(localStorage.getItem(key) || '{}');
+        seen[ticketId] = messageCount;
+        localStorage.setItem(key, JSON.stringify(seen));
+    },
+
+    /**
+     * Get count of tickets with unread messages
+     */
+    getUnreadCount: function() {
+        const uid = AuthManager.currentUser?.uid;
+        if (!uid) return 0;
+        const key = `ticket_seen_${uid}`;
+        const seen = JSON.parse(localStorage.getItem(key) || '{}');
+        const isAdmin = AuthManager.isAdmin();
+        let unread = 0;
+        this.tickets.forEach(t => {
+            const lastSeen = seen[t.ticket_id] || 0;
+            // Admin sees all messages, users only see visible (non-internal) messages
+            const currentCount = isAdmin ? (t.message_count || 0) : (t.visible_message_count || 0);
+            if (currentCount > lastSeen) unread++;
+        });
+        return unread;
+    },
+
+    /**
+     * Update the notification badge in sidebar
+     */
+    updateBadge: function() {
+        const badge = document.getElementById('supportBadge');
+        if (!badge) return;
+        const count = this.getUnreadCount();
+        badge.textContent = count > 0 ? (count > 9 ? '9+' : count) : '';
     }
 };
 
@@ -559,6 +774,19 @@ function closeTicketDetailModal() {
         modal.style.display = 'none';
     }
     SupportManager.currentTicketId = null;
+}
+
+function closeDeleteTicketModal() {
+    const modal = document.getElementById('deleteTicketModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function confirmDeleteTicket() {
+    const ticketId = document.getElementById('deleteTicketId').value;
+    closeDeleteTicketModal();
+    SupportManager.deleteTicket(ticketId);
 }
 
 // Close modals on overlay click

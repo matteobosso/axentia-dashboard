@@ -2,7 +2,6 @@
  * Firebase Authentication Manager for Axentia Dashboard
  * Handles user authentication, token management, endpoint routing, and RBAC
  */
-
 // Firebase configuration (same as main website)
 const firebaseConfig = {
     apiKey: "AIzaSyD7fdNXUgSw4VX8lN9bvbt34htyaxu5pPs",
@@ -12,6 +11,9 @@ const firebaseConfig = {
     messagingSenderId: "315615355298",
     appId: "1:315615355298:web:f7092567187e3fb69b92fb"
 };
+
+// Centralized API endpoint (User Management, Support, etc.)
+const MAIN_N8N_ENDPOINT = 'https://main-n8n.axentia-automation.it';
 
 const AuthManager = {
     // Core auth state
@@ -53,6 +55,9 @@ const AuthManager = {
             if (user) {
                 this.currentUser = user;
                 await this.refreshToken();
+                // Load endpoint from company (for non-admin users)
+                await this.loadClientEndpointFromCompany();
+                // Load all companies (for admin users)
                 await this.loadCompaniesIfAdmin();
                 this.onAuthSuccess();
                 this.authReadyResolve(true);
@@ -110,6 +115,7 @@ const AuthManager = {
         sessionStorage.removeItem('user_role');
         sessionStorage.removeItem('company_id');
         sessionStorage.removeItem('selected_company_id');
+        sessionStorage.removeItem('admin_companies');
     },
 
     /**
@@ -130,26 +136,26 @@ const AuthManager = {
                 claims = JSON.parse(claims.customAttributes);
             }
 
-            // Get n8n endpoint from custom claims, fallback to main demo instance
-            this.clientEndpoint = claims.n8n_endpoint
-                || 'https://main-n8n.axentia-automation.it';
-
             // Extract role (default to 'user' if not set)
             this.userRole = claims.role || 'user';
 
             // Extract company ID
             this.companyId = claims.company_id || null;
 
+            // n8n_endpoint should come from company, not user claims
+            // Use cached endpoint or fallback to main instance
+            // The actual endpoint will be loaded from company data
+            this.clientEndpoint = sessionStorage.getItem('n8n_endpoint')
+                || MAIN_N8N_ENDPOINT;
+
             // Debug logging for role detection
             console.log('[AuthManager] Token claims:', {
                 role: this.userRole,
                 company_id: this.companyId,
-                n8n_endpoint: this.clientEndpoint,
                 email: this.currentUser?.email
             });
 
             // Store in sessionStorage for quick access
-            sessionStorage.setItem('n8n_endpoint', this.clientEndpoint);
             sessionStorage.setItem('user_role', this.userRole);
             if (this.companyId) {
                 sessionStorage.setItem('company_id', this.companyId);
@@ -171,13 +177,64 @@ const AuthManager = {
     },
 
     /**
+     * Load client endpoint from company data (for non-admin users)
+     * The n8n_endpoint is stored at company level, not user level
+     */
+    loadClientEndpointFromCompany: async function() {
+        // Admins use main-n8n or selected company endpoint
+        if (this.isAdmin()) return;
+
+        // No company assigned
+        if (!this.companyId) return;
+
+        try {
+            const response = await fetch(this.getCentralizedApiUrl('user-management'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.idToken}`
+                },
+                body: JSON.stringify({
+                    action: 'get_company',
+                    company_id: this.companyId
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.company && data.company.n8n_endpoint) {
+                    this.clientEndpoint = data.company.n8n_endpoint;
+                    this.companyName = data.company.name;
+                    sessionStorage.setItem('n8n_endpoint', this.clientEndpoint);
+                    console.log('[AuthManager] Loaded client endpoint from company:', this.clientEndpoint);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading client endpoint:', error);
+            // Keep using cached or default endpoint
+        }
+    },
+
+    /**
      * Load all companies for admin users
      */
     loadCompaniesIfAdmin: async function() {
         if (!this.isAdmin()) return;
 
+        // Try to load from cache first for immediate UI
+        const cachedCompanies = sessionStorage.getItem('admin_companies');
+        if (cachedCompanies) {
+            try {
+                this.allCompanies = JSON.parse(cachedCompanies);
+                console.log('[AuthManager] Loaded companies from cache:', this.allCompanies.length);
+            } catch (e) {
+                this.allCompanies = [];
+            }
+        }
+
         try {
-            const response = await fetch(this.getWebhookUrl('user-management'), {
+            // User Management API is centralized on main-n8n
+            const response = await fetch(this.getCentralizedApiUrl('user-management'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -188,11 +245,17 @@ const AuthManager = {
 
             if (response.ok) {
                 const data = await response.json();
-                this.allCompanies = Array.isArray(data) ? data : [];
+                this.allCompanies = Array.isArray(data.companies) ? data.companies : [];
+                // Cache for next page load
+                sessionStorage.setItem('admin_companies', JSON.stringify(this.allCompanies));
+                console.log('[AuthManager] Loaded companies from server:', this.allCompanies);
             }
         } catch (error) {
             console.error('Error loading companies:', error);
-            this.allCompanies = [];
+            // Keep cached data if fetch fails
+            if (!this.allCompanies.length) {
+                this.allCompanies = [];
+            }
         }
     },
 
@@ -206,30 +269,31 @@ const AuthManager = {
 
     /**
      * Get the company ID to use for data filtering
-     * For admins: returns selected company or null (all companies)
+     * For admins: returns selected company (always required)
      * For users: always returns their own company
      * @returns {string|null}
      */
     getActiveCompanyId: function() {
         if (this.isAdmin()) {
-            return this.selectedCompanyId; // null means "all companies"
+            // Ensure admin always has a company selected
+            if (!this.selectedCompanyId && this.allCompanies.length > 0) {
+                this.setActiveCompany(this.allCompanies[0].company_id);
+            }
+            return this.selectedCompanyId;
         }
         return this.companyId;
     },
 
     /**
      * Set the active company filter (admin only)
-     * @param {string|null} companyId - Company to filter by, or null for all
+     * @param {string} companyId - Company to filter by (required)
      */
     setActiveCompany: function(companyId) {
         if (!this.isAdmin()) return;
+        if (!companyId) return; // Don't allow null/empty
 
         this.selectedCompanyId = companyId;
-        if (companyId) {
-            sessionStorage.setItem('selected_company_id', companyId);
-        } else {
-            sessionStorage.removeItem('selected_company_id');
-        }
+        sessionStorage.setItem('selected_company_id', companyId);
 
         // Dispatch event for other components to react
         window.dispatchEvent(new CustomEvent('companyFilterChanged', {
@@ -243,21 +307,55 @@ const AuthManager = {
      * @returns {string}
      */
     getCompanyName: function(companyId) {
-        if (!companyId) return 'Tutte le aziende';
-        const company = this.allCompanies.find(c => c.company_id === companyId);
+        if (!companyId) {
+            // Default to first company name if none selected
+            return this.allCompanies.length > 0 ? this.allCompanies[0].name : 'Nessuna azienda';
+        }
+        // Check AuthManager.allCompanies first
+        let company = this.allCompanies.find(c => c.company_id === companyId);
+        // Fallback to UsersManager.companies if available
+        if (!company && typeof UsersManager !== 'undefined' && UsersManager.companies) {
+            company = UsersManager.companies.find(c => c.company_id === companyId);
+        }
         return company ? company.name : 'Sconosciuta';
     },
 
     /**
-     * Get the full webhook URL for a given path
+     * Get company endpoint by ID
+     * @param {string} companyId
+     * @returns {string} The company's n8n endpoint or main endpoint as fallback
+     */
+    getCompanyEndpoint: function(companyId) {
+        if (!companyId) return MAIN_N8N_ENDPOINT;
+
+        let company = this.allCompanies.find(c => c.company_id === companyId);
+        if (!company && typeof UsersManager !== 'undefined' && UsersManager.companies) {
+            company = UsersManager.companies.find(c => c.company_id === companyId);
+        }
+        return company?.n8n_endpoint || MAIN_N8N_ENDPOINT;
+    },
+
+    /**
+     * Get the full webhook URL for a given path (uses client endpoint)
+     * Use this for distributed APIs like dashboard-api, chat
      * @param {string} path - The webhook path (e.g., 'dashboard-api', 'chat')
      * @returns {string} Full webhook URL
      */
     getWebhookUrl: function(path) {
         const endpoint = this.clientEndpoint
             || sessionStorage.getItem('n8n_endpoint')
-            || 'https://main-n8n.axentia-automation.it';
+            || MAIN_N8N_ENDPOINT;
         return `${endpoint}/webhook/${path}`;
+    },
+
+    /**
+     * Get the centralized API URL (always uses main-n8n)
+     * Use this for centralized APIs like user-management, support-api
+     * @param {string} path - The webhook path (e.g., 'user-management', 'support-api')
+     * @returns {string} Full webhook URL on main instance
+     */
+    getCentralizedApiUrl: function(path) {
+        return `${MAIN_N8N_ENDPOINT}/webhook/${path}`;
     },
 
     /**
@@ -312,13 +410,8 @@ const AuthManager = {
             this.initCompanyFilter();
         }
 
-        // Trigger dashboard initialization if functions exist
-        if (typeof initDashboard === 'function') {
-            initDashboard();
-        }
-        if (typeof initReport === 'function') {
-            initReport();
-        }
+        // NOTE: initDashboard() and initReport() are now called from dashboard.js
+        // after awaiting AuthManager.waitForAuth() to prevent race conditions
 
         // Dispatch custom event for other scripts to listen to
         window.dispatchEvent(new CustomEvent('authReady', {
@@ -363,8 +456,13 @@ const AuthManager = {
      * Initialize the company filter dropdown (admin only)
      */
     initCompanyFilter: function() {
+        console.log('[AuthManager] initCompanyFilter called, allCompanies:', this.allCompanies);
+
         const filterWrapper = document.getElementById('companyFilterWrapper');
-        if (!filterWrapper) return;
+        if (!filterWrapper) {
+            console.log('[AuthManager] companyFilterWrapper not found in DOM');
+            return;
+        }
 
         // Show the filter for admins
         filterWrapper.style.display = '';
@@ -375,45 +473,59 @@ const AuthManager = {
 
         if (!trigger || !currentName || !optionsMenu) return;
 
-        // Build options HTML
-        let optionsHtml = `
-            <div class="company-option" data-id="">Tutte le aziende</div>
-        `;
-
+        // Build options HTML (no "all companies" option - always select one)
+        let optionsHtml = '';
         this.allCompanies.forEach(company => {
+            const isActive = company.company_id === this.selectedCompanyId ? ' active' : '';
             optionsHtml += `
-                <div class="company-option" data-id="${SecurityUtils.escapeAttribute(company.company_id)}">
+                <div class="dropdown-item${isActive}" data-id="${SecurityUtils.escapeAttribute(company.company_id)}">
                     ${SecurityUtils.escapeHtml(company.name)}
                 </div>
             `;
         });
 
         optionsMenu.innerHTML = optionsHtml;
+        console.log('[AuthManager] Dropdown options HTML:', optionsHtml);
+        console.log('[AuthManager] optionsMenu children:', optionsMenu.children.length);
 
-        // Set initial selection
+        // Auto-select first company if none selected
+        if (!this.selectedCompanyId && this.allCompanies.length > 0) {
+            this.setActiveCompany(this.allCompanies[0].company_id);
+        }
+
+        // Set initial selection display
         currentName.textContent = this.getCompanyName(this.selectedCompanyId);
+
+        // Get the dropdown element (child of filterWrapper)
+        const dropdown = filterWrapper.querySelector('.custom-company-dropdown');
 
         // Toggle dropdown
         trigger.onclick = (e) => {
             e.stopPropagation();
-            filterWrapper.classList.toggle('open');
+            dropdown.classList.toggle('open');
         };
 
         // Handle option selection
-        optionsMenu.querySelectorAll('.company-option').forEach(opt => {
+        optionsMenu.querySelectorAll('.dropdown-item').forEach(opt => {
             opt.onclick = (e) => {
                 e.stopPropagation();
-                const companyId = opt.getAttribute('data-id') || null;
-                this.setActiveCompany(companyId);
-                currentName.textContent = opt.textContent.trim();
-                filterWrapper.classList.remove('open');
+                const companyId = opt.getAttribute('data-id');
+                if (companyId) {
+                    this.setActiveCompany(companyId);
+                    currentName.textContent = opt.textContent.trim();
+                    // Update active state
+                    optionsMenu.querySelectorAll('.dropdown-item').forEach(item => {
+                        item.classList.toggle('active', item === opt);
+                    });
+                }
+                dropdown.classList.remove('open');
             };
         });
 
         // Close on outside click
         document.addEventListener('click', (e) => {
             if (!filterWrapper.contains(e.target)) {
-                filterWrapper.classList.remove('open');
+                dropdown.classList.remove('open');
             }
         });
     },
@@ -495,7 +607,69 @@ const AuthManager = {
     }
 };
 
+// Early UI initialization from cached session (reduces visual delay)
+function initUIFromCache() {
+    const cachedRole = sessionStorage.getItem('user_role');
+    if (cachedRole === 'admin') {
+        // Show admin elements immediately from cache
+        document.querySelectorAll('[data-role="admin"]').forEach(el => {
+            el.style.display = '';
+        });
+        document.querySelectorAll('[data-role="user"]').forEach(el => {
+            el.style.display = 'none';
+        });
+
+        // Pre-populate company dropdown from cache
+        const cachedCompanies = sessionStorage.getItem('admin_companies');
+        const selectedCompanyId = sessionStorage.getItem('selected_company_id');
+        if (cachedCompanies) {
+            try {
+                const companies = JSON.parse(cachedCompanies);
+                const optionsMenu = document.getElementById('companyOptions');
+                const currentName = document.getElementById('currentCompanyName');
+
+                if (optionsMenu && companies.length > 0) {
+                    let optionsHtml = '';
+                    companies.forEach(company => {
+                        optionsHtml += `
+                            <div class="company-option" data-id="${company.company_id}">
+                                ${company.name}
+                            </div>
+                        `;
+                    });
+                    optionsMenu.innerHTML = optionsHtml;
+
+                    // Set current company name
+                    if (currentName) {
+                        const activeId = selectedCompanyId || companies[0]?.company_id;
+                        const activeCompany = companies.find(c => c.company_id === activeId);
+                        currentName.textContent = activeCompany?.name || companies[0]?.name || 'Seleziona azienda';
+                    }
+                }
+            } catch (e) {
+                console.warn('[AuthManager] Error parsing cached companies:', e);
+            }
+        }
+    }
+}
+
 // Initialize auth when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+    // Apply cached role immediately to reduce visual delay
+    initUIFromCache();
+
     AuthManager.init();
+    
+    // Event Delegation per il logout
+    // Funziona anche se il pulsante viene creato dinamicamente o è un'icona
+    document.addEventListener('click', async (e) => {
+        // Cerca l'elemento cliccato o un suo genitore che abbia l'ID 'logoutBtn'
+        const btn = e.target.closest('#logoutBtn');
+
+        if (btn) {
+            e.preventDefault();
+            console.log("Logout button clicked"); // Debug per vedere se funziona
+            await AuthManager.signOut();
+        }
+    });
 });
