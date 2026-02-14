@@ -1,0 +1,5 @@
+# robots.txt for Axentia Dashboard
+# This is a private dashboard - prevent all indexing
+
+User-agent: *
+Disallow: /
