@@ -6,63 +6,392 @@
 **Type:** Multi-tenant dashboard for n8n automation management
 **Owner:** Axentia Automation
 **Status:** In development - pre-scaling phase
+**Custom Domain:** `dash.axentia-automation.it`
 
 ### Admin Account
 - **Primary Admin Email:** info@axentia-automation.it
 - Admin users have `role: 'admin'` in Firebase custom claims
+- Admin has `company_id: null` (non è legato a un'azienda)
 - First admin must be set up manually in Firebase Console
 
 ### Tech Stack
-- **Frontend:** Vanilla JavaScript (no frameworks/libraries)
+- **Frontend:** Vanilla JavaScript ES6+ (no frameworks)
+- **CSS:** Custom CSS con CSS Variables (no Tailwind, Bootstrap, etc.)
 - **Backend:** n8n workflow engine (no custom API server)
 - **Database:** PostgreSQL 15+ with pgvector extension
-- **Auth:** Cloudflare Access (admin) + Firebase Auth (clients)
-- **Storage:** File system for PDF/DOCX knowledge base
+- **Auth:** Firebase Auth (email/password) con custom claims per RBAC
+- **Storage:** File system on Oracle Cloud VM per knowledge base
 - **AI/ML:** Google Gemini API for embeddings and LLM
 - **Infrastructure:** Oracle Cloud Always Free tier
 - **Hosting:** GitHub Pages (static frontend)
+- **Analytics:** Google Analytics (`G-X6MMD9Q21B`)
+- **CDN:** Cloudflare (free tier)
 
 ---
 
-## Architecture
+## Frontend
 
-### Frontend Structure
+### Pagine HTML
 
-Main files in project root:
-- [dashboard.js](assets/js/dashboard.js) - Main dashboard logic
-- [index.html](index.html) - Homepage/login
-- [report.html](report.html) - Report visualization
-- [conoscenza.html](conoscenza.html) - Knowledge base management
-- [chat.html](chat.html) - AI chat interface
-- [flussi.html](flussi.html) - n8n workflow management
-- [supporto.html](supporto.html) - Support tickets
-- [utenti.html](utenti.html) - User management (admin only)
+| File | Scopo | Script dedicato |
+|------|-------|-----------------|
+| [login.html](login.html) | Login email/password (Firebase Auth) | Inline script |
+| [index.html](index.html) | Dashboard KPI: ore risparmiate, esecuzioni, ROI, grafici | [dashboard.js](assets/js/dashboard.js) |
+| [report.html](report.html) | Tabella report con metriche per automazione | [dashboard.js](assets/js/dashboard.js) |
+| [flussi.html](flussi.html) | Griglia workflow con esecuzione manuale e parametri | [dashboard.js](assets/js/dashboard.js) |
+| [conoscenza.html](conoscenza.html) | Upload e gestione documenti knowledge base | [dashboard.js](assets/js/dashboard.js) |
+| [chat.html](chat.html) | Chat AI con RAG, selezione agente, upload file | [chat.js](assets/js/chat.js) |
+| [supporto.html](supporto.html) | Sistema ticket di supporto con messaggistica | [support.js](assets/js/support.js) |
+| [utenti.html](utenti.html) | Gestione utenti e aziende (solo admin) | [users.js](assets/js/users.js) |
 
-**Frontend Constraints:**
-- ✅ Vanilla JavaScript only
-- ❌ NO React, Vue, Angular, Svelte, or other frameworks
-- ✅ Use Fetch API for HTTP calls
-- ✅ Native DOM manipulation
-- ✅ Pure CSS or lightweight CSS frameworks (e.g., Tailwind CDN)
+### File JavaScript
 
-### Backend Architecture
+| File | Righe | Ruolo |
+|------|-------|-------|
+| [auth.js](assets/js/auth.js) | ~670 | **Core:** Firebase Auth, AuthManager singleton, token management, RBAC, endpoint routing |
+| [dashboard.js](assets/js/dashboard.js) | ~1110 | Dashboard KPI, report, workflow, knowledge base, Chart.js, filtri |
+| [users.js](assets/js/users.js) | ~1185 | UsersManager + CompaniesManager: CRUD utenti/aziende (admin only) |
+| [support.js](assets/js/support.js) | ~815 | SupportManager: ticket CRUD, messaggi, badge notifiche |
+| [chat.js](assets/js/chat.js) | ~190 | Chat AI: invio messaggi, upload file, rendering markdown/LaTeX |
+| [security-utils.js](assets/js/security-utils.js) | ~127 | `SecurityUtils`: escapeHtml, escapeAttribute, validators, generateSecureId |
+| [custom.js](assets/js/custom.js) | ~715 | UI generica: tabs, accordion, menu mobile, animazioni scroll (IntersectionObserver) |
+| [form.js](assets/js/form.js) | ~127 | Form contatto website (Pristine.js validation + n8n webhook) |
+| [cookie-config.js](assets/js/cookie-config.js) | ~58 | Configurazione CookieConsent: categorie necessary + analytics, lingua IT |
+| [cookieconsent.js](assets/js/cookieconsent.js) | ~6 | Loader libreria CookieConsent |
 
-**n8n Workflow Engine:**
-- Main endpoint: `https://main-n8n.axentia-automation.it`
-- All endpoints are n8n webhooks
-- No custom server (Express, FastAPI, etc.)
+**Dipendenze tra file:**
+```
+auth.js (core - caricato su tutte le pagine)
+├── security-utils.js (usato da tutti)
+├── dashboard.js (index, report, flussi, conoscenza)
+├── chat.js (chat.html)
+├── support.js (supporto.html)
+└── users.js (utenti.html)
+```
 
-**Key n8n Workflows:**
-1. **API Gateway** - Routing and company_id filtering
-2. **Knowledge Base Upload** (`/post_knowledge`) - PDF/DOCX processing
-3. **Chat Agent** - RAG with vector similarity search
-4. **User Management** - User CRUD operations
-5. **Support API** - Ticket management
-6. **Analytics** - Data aggregation and metrics
+### Librerie Esterne & CDN
 
-### Database Schema
+| Libreria | Versione | Usata in | Scopo |
+|----------|----------|----------|-------|
+| Firebase Auth | 10.7.0 | Tutte le pagine | Autenticazione |
+| Chart.js | latest | index.html, report.html | Grafici KPI (bar + pie chart) |
+| marked.js | latest | chat.html | Rendering Markdown nelle risposte AI |
+| KaTeX | 0.16.9 | chat.html | Rendering equazioni LaTeX |
+| Prism.js | 1.29.0 | chat.html | Syntax highlighting nel codice |
+| CookieConsent | - | Tutte le pagine | Banner cookie GDPR (IT) |
+| lozad.js | - | index.html | Lazy loading immagini |
 
-**PostgreSQL with pgvector extension**
+**Librerie locali in `assets/libs/`:**
+- `highlight/` - Highlight.js con 140+ linguaggi (per website, non dashboard)
+- `lozad/` - Image lazy loading
+- `pristine/` - Form validation (per form.js)
+
+### CSS & Styling
+
+- **File unico:** [style.css](assets/css/style.css) (~6235 righe)
+- **Nessun framework CSS** - tutto custom
+- **CSS Variables** per tema:
+  - Accent: `#ff524f`
+  - Background: `#ffffff`
+  - Text: `#151515`
+- **Font (WOFF2, preloaded):**
+  - Source Sans Pro (body)
+  - Montserrat (headings)
+  - Playfair Display (decorativo)
+- **Cookie consent:** [cookieconsent.css](assets/css/cookieconsent.css)
+- **Responsive:** Media queries + hamburger menu mobile
+
+### Autenticazione (Firebase Auth)
+
+**Flusso login:**
+```
+1. login.html → email/password → Firebase signInWithEmailAndPassword
+2. Firebase ritorna user + JWT token
+3. auth.js estrae custom claims: { role, company_id }
+4. loadClientEndpointFromCompany() → fetch endpoint n8n dell'azienda
+5. loadCompaniesIfAdmin() → carica lista aziende (se admin)
+6. Redirect a index.html
+7. Evento 'authReady' dispatched
+```
+
+**AuthManager - Metodi principali:**
+
+| Metodo | Scopo |
+|--------|-------|
+| `init()` | Inizializza Firebase e listener auth state |
+| `waitForAuth()` | Promise che risolve quando auth è determinato |
+| `isAdmin()` | Ritorna true se `userRole === 'admin'` |
+| `getActiveCompanyId()` | Company ID attiva (admin: selezionata, utente: sua) |
+| `getWebhookUrl(path)` | URL endpoint DINAMICO (client endpoint) |
+| `getCentralizedApiUrl(path)` | URL endpoint STATICO (main-n8n) |
+| `getCompanyEndpoint(companyId)` | Endpoint n8n di una specifica azienda |
+| `fetchWithAuth(url, options)` | Fetch con Bearer token automatico |
+| `setActiveCompany(companyId)` | Admin: cambia azienda filtrata (fire `companyFilterChanged`) |
+| `updateUIForRole()` | Mostra/nascondi elementi con `[data-role="admin\|user"]` |
+| `signOut()` | Logout e redirect a login.html |
+
+**Firebase Config (hardcoded, pubblico - OK per frontend):**
+- Project: `axentia-website`
+- Auth Domain: `axentia-website.firebaseapp.com`
+
+### Differenze Admin vs Utente
+
+| Pagina | Admin | Utente |
+|--------|-------|--------|
+| **login.html** | Stesso form | Stesso form |
+| **index.html** | Vede dropdown filtro azienda, può switchare tra aziende | Vede solo i propri KPI |
+| **report.html** | Filtro azienda per vedere report di qualsiasi cliente | Solo i propri report |
+| **flussi.html** | Filtro azienda, esegue workflow su endpoint del cliente scelto | Esegue workflow sul proprio endpoint |
+| **conoscenza.html** | Filtro azienda, gestisce knowledge base di qualsiasi cliente | Solo la propria knowledge base |
+| **chat.html** | Seleziona azienda → chat usa endpoint del cliente scelto | Chat usa il proprio endpoint |
+| **supporto.html** | Vede tutti i ticket, colonna "Azienda", note interne, cambio stato, elimina | Vede solo i propri ticket, nessuna nota interna |
+| **utenti.html** | Accesso completo: CRUD utenti e aziende | **Accesso negato** - pagina nascosta |
+
+**Implementazione UI:**
+- Elementi admin hanno attributo `data-role="admin"` con `style="display: none"`
+- `AuthManager.updateUIForRole()` li rende visibili solo per admin
+- `utenti.html` mostra messaggio "Accesso Negato" se non admin
+
+### Pattern di Inizializzazione
+
+Ogni pagina segue lo stesso flusso:
+```javascript
+document.addEventListener('DOMContentLoaded', async () => {
+  // 1. Applica UI dalla cache (evita flash)
+  initUIFromCache()
+
+  // 2. Inizializza auth
+  await AuthManager.init()
+
+  // 3. Attendi che auth sia pronto
+  await AuthManager.waitForAuth()
+
+  // 4. Inizializzazione pagina-specifica
+  initReport()     // oppure initDashboard(), SupportManager.init(), etc.
+
+  // 5. Listener per cambio azienda (admin)
+  window.addEventListener('companyFilterChanged', () => {
+    // Ricarica dati con nuova azienda
+  })
+})
+```
+
+### Session & Storage Management
+
+| Storage | Chiave | Scopo |
+|---------|--------|-------|
+| **sessionStorage** | `n8n_endpoint` | Endpoint n8n del cliente |
+| **sessionStorage** | `user_role` | Ruolo utente (admin/user) |
+| **sessionStorage** | `company_id` | Company UUID dell'utente |
+| **sessionStorage** | `selected_company_id` | Azienda selezionata dall'admin |
+| **sessionStorage** | `admin_companies` | JSON array di tutte le aziende (cache admin) |
+| **localStorage** | `chat_session_id` | ID sessione chat persistente |
+| **localStorage** | `ticket_seen_{uid}` | Tracking ticket letti per badge notifiche |
+| **Memory** | `AuthManager.currentUser` | Oggetto utente Firebase |
+| **Memory** | `AuthManager.idToken` | JWT token corrente |
+
+---
+
+## Backend (n8n Workflows)
+
+### Architettura: Statico vs Dinamico
+
+Il backend è composto da workflow n8n esposti come webhook. Si dividono in due categorie:
+
+#### Endpoint STATICI (sempre su `main-n8n.axentia-automation.it`)
+Gestiscono dati globali che devono essere centralizzati:
+
+| Workflow | Endpoint | ID | Nodi |
+|----------|----------|----|------|
+| User Management API | `/webhook/user-management` | `yUGfj1SPnlV5ghc3` | 42 |
+| Support API | `/webhook/support-api` | `EmrSglbOTyyDDRCP` | 31 |
+
+**Frontend chiama con:** `AuthManager.getCentralizedApiUrl('user-management')`
+
+**Perché centralizzati:**
+- Single source of truth per utenti/aziende/ticket
+- Dati condivisi tra tutti i clienti
+- Manutenzione in un solo punto
+
+#### Endpoint DINAMICI (diversi per ogni cliente)
+Ogni cliente ha la propria istanza n8n con questi workflow:
+
+| Workflow | Endpoint | ID (main) | Nodi |
+|----------|----------|-----------|------|
+| Frontend API | `/webhook/dashboard-api` | `G4CWLAYZUXDVdjxG` | 23 |
+| Agent Chat | `/webhook/{agent-path}` | `TvuhroJo6leA84vp` | 7 |
+
+**Frontend chiama con:** `AuthManager.getWebhookUrl('dashboard-api')`
+**Admin chiama con:** `AuthManager.getCompanyEndpoint(companyId) + '/webhook/dashboard-api'`
+
+**Perché distribuiti:**
+- Ogni cliente ha workflow e dati propri
+- Isolamento: dati del cliente restano sulla sua VM
+- Performance: query eseguiti sull'istanza dedicata
+
+### [Service] Frontend API (`G4CWLAYZUXDVdjxG`)
+
+**Disponibilità:** Su TUTTI gli endpoint n8n (main + ogni cliente)
+**Webhook:** POST `/webhook/dashboard-api`
+**Tag:** Dashboard | **Nodi:** 23
+
+Questo è il workflow principale della dashboard. Gestisce KPI, workflow, e knowledge base.
+
+**Flusso completo:**
+```
+Webhook Gateway → Validate Input (Code) → Switch Action
+  │
+  ├── "get_workflows" → SQL: Get Workflows → Respond Workflows
+  │
+  ├── "get_executions" → SQL: Get Executions → Respond Executions
+  │
+  ├── "get_agents" → SQL: Get Agents → Respond Agents
+  │
+  ├── "run_workflow" → HTTP Request: Run workflow → Respond Result
+  │
+  └── "knowledge_base" → Switch sub action
+        │
+        ├── "list" → SQL: Get KBs → Respond KB
+        │
+        ├── "delete" → GET Workflow Id (Postgres)
+        │   → SQL: Delete KBs → Respond Deleted
+        │
+        └── "upload" → GET Workflow Id (Postgres)
+            → Code in JavaScript (prepare chunks)
+            → Postgres PGVector Store
+                ├── Embeddings Google Gemini (ai_embedding)
+                └── Default Data Loader (ai_document)
+            → Respond Done
+```
+
+**Actions disponibili:**
+
+| Action | Descrizione | Usata da |
+|--------|-------------|----------|
+| `get_workflows` | Lista workflow disponibili con metadati | flussi.html |
+| `get_executions` | Dati esecuzioni per KPI e grafici | index.html, report.html |
+| `get_agents` | Lista agenti AI disponibili | chat.html, conoscenza.html |
+| `run_workflow` | Esecuzione manuale workflow con parametri | flussi.html |
+| `knowledge_base` (list) | Lista documenti caricati | conoscenza.html |
+| `knowledge_base` (delete) | Elimina documento e relativi vector | conoscenza.html |
+| `knowledge_base` (upload) | Upload file → chunking → embedding → PGVector | conoscenza.html |
+
+### [Service] User Management API (`yUGfj1SPnlV5ghc3`)
+
+**Disponibilità:** SOLO su main-n8n
+**Webhook:** POST `/webhook/user-management`
+**Tag:** Dashboard | **Nodi:** 42
+
+Gestisce utenti (su Firebase) e aziende (su PostgreSQL). Ha validazione JWT completa.
+
+**Flusso di sicurezza:**
+```
+Webhook → Extract Request Data (Set)
+  → Has Bearer Token? (IF)
+    ├── NO → Respond 401 No Token
+    └── YES → Fetch Firebase Public Keys (HTTP Request)
+        → Verify JWT (Code: verifica firma con chiave pubblica)
+        → Token Valid? (IF)
+          ├── NO → Respond 401 Invalid Token
+          └── YES → Route by Action (Switch, 10 routes)
+```
+
+**Actions disponibili:**
+
+| Action | Admin required | Descrizione |
+|--------|:-------------:|-------------|
+| `list_users` | No | Lista utenti da Firebase → Transform & Filter |
+| `list_companies` | No | Lista aziende da PostgreSQL → Filter |
+| `get_company` | No | Singola azienda da PostgreSQL |
+| `create_user` | **Si** | Crea utente Firebase → Set Claims → Send Reset Email |
+| `update_user` | **Si** | Get Current User → Merge Claims → Update Firebase User |
+| `delete_user` | **Si** | Elimina utente da Firebase |
+| `create_company` | **Si** | INSERT in PostgreSQL |
+| `update_company` | **Si** | UPDATE in PostgreSQL |
+| `delete_company` | **Si** | DELETE da PostgreSQL |
+
+**Nota:** Le operazioni di scrittura passano per un nodo "Check Admin" (IF) che verifica il ruolo dal JWT. Se non admin → Respond 403 Forbidden.
+
+**Nota:** Alla creazione utente, viene inviata una email di reset password automaticamente.
+
+### [Service] Support API (`EmrSglbOTyyDDRCP`)
+
+**Disponibilità:** SOLO su main-n8n
+**Webhook:** POST `/webhook/support-api`
+**Tag:** Dashboard | **Nodi:** 31
+
+Gestisce il sistema ticket di supporto con messaggistica.
+
+**Flusso:**
+```
+Webhook → Validate Auth (IF: Bearer token)
+  ├── NO → Respond 401
+  └── YES → Route by Action (Switch, 7 routes)
+      ├── list_tickets → Postgres: List Tickets → Respond
+      ├── get_ticket → Validate (IF) → Postgres: Get Ticket → Respond
+      ├── create_ticket → Validate (IF) → Postgres: Create Ticket → Respond
+      ├── add_message → Validate (IF) → Postgres: Add Message
+      │   → Check New Status? (IF)
+      │     ├── YES → Update Status Inline → Respond
+      │     └── NO → Respond
+      ├── update_status → Validate (IF) → Postgres: Update Status → Respond
+      ├── delete_ticket → Validate (IF) → Delete Messages → Delete Ticket → Respond
+      └── fallback → Respond 400 Unknown
+```
+
+**Actions disponibili:**
+
+| Action | Body fields | Descrizione |
+|--------|-------------|-------------|
+| `list_tickets` | `company_id`, `firebase_uid` | Lista ticket (filtrati per azienda/utente) |
+| `get_ticket` | `ticket_id` | Dettaglio ticket con messaggi |
+| `create_ticket` | `subject`, `description`, `category`, `priority`, `company_id`, `user_id` | Crea nuovo ticket |
+| `add_message` | `ticket_id`, `message`, `user_id`, `author_name`, `is_internal`, `new_status` | Aggiunge messaggio (opzionale: cambia stato) |
+| `update_status` | `ticket_id`, `status` | Aggiorna stato ticket |
+| `delete_ticket` | `ticket_id` | Elimina messaggi + ticket (admin only, FK constraint) |
+
+**Validazione:** Ogni action ha un nodo IF dedicato che valida i campi richiesti prima di eseguire la query.
+
+### Altri Workflow su main-n8n
+
+| Workflow | ID | Nodi | Scopo |
+|----------|----|------|-------|
+| [Support] Agent Chat | `TvuhroJo6leA84vp` | 7 | Chat AI conversazionale (RAG) |
+| [Service] Send email message for new contact | `bBKfC3M4IUNhAheK` | 4 | Email automatica da form contatto website |
+
+### Modificare il Backend con MCP Tools & Skills
+
+Il backend n8n è **completamente accessibile e modificabile** tramite gli strumenti configurati:
+
+**n8n MCP Tools** (configurati in `.mcp.json`):
+- `n8n_list_workflows` / `n8n_get_workflow` - Leggere workflow esistenti
+- `n8n_create_workflow` / `n8n_update_full_workflow` / `n8n_update_partial_workflow` - Modificare workflow
+- `n8n_validate_workflow` / `n8n_autofix_workflow` - Validare e correggere
+- `n8n_test_workflow` - Eseguire workflow
+- `n8n_workflow_versions` - Gestione versioni e rollback
+- `search_nodes` / `get_node` / `validate_node` - Esplorare nodi disponibili
+- `search_templates` / `get_template` / `n8n_deploy_template` - Template pronti
+
+**7 n8n Skills installate:**
+1. **n8n-mcp-tools-expert** - Guida alla selezione dei tool giusti
+2. **n8n-workflow-patterns** - Pattern architetturali comprovati
+3. **n8n-node-configuration** - Configurazione nodi con parametri
+4. **n8n-validation-expert** - Interpretare errori di validazione
+5. **n8n-expression-syntax** - Sintassi espressioni n8n `{{ }}`
+6. **n8n-code-javascript** - Codice JS nei Code node
+7. **n8n-code-python** - Codice Python nei Code node
+
+**IMPORTANTE - Best practice per modifiche:**
+- Mai modificare workflow in produzione senza backup (`n8n_workflow_versions`)
+- Usare nodi espliciti (Switch, Postgres, IF, Set) invece di Code node quando possibile
+- Validare sempre con `n8n_validate_workflow` prima di salvare
+- Testare con dati mock, non dati reali dei clienti
+
+---
+
+## Database Schema
+
+**PostgreSQL con pgvector extension**
 
 ```sql
 -- Table: companies
@@ -74,21 +403,7 @@ CREATE TABLE companies (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Table: users
-CREATE TABLE users (
-    user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    firebase_uid VARCHAR(128) UNIQUE NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    display_name VARCHAR(255),
-    role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
-    company_id UUID REFERENCES companies(company_id),
-    n8n_endpoint VARCHAR(500),
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT NOW(),
-    last_login_at TIMESTAMP
-);
-
--- Table: n8n_vectors (Vector Store for RAG)
+-- Table: n8n_vectors (Vector Store per RAG)
 CREATE TABLE n8n_vectors (
     id SERIAL PRIMARY KEY,
     text TEXT NOT NULL,
@@ -100,7 +415,7 @@ CREATE TABLE n8n_vectors (
 CREATE TABLE support_tickets (
     ticket_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     company_id UUID NOT NULL REFERENCES companies(company_id),
-    created_by UUID NOT NULL REFERENCES users(user_id),
+    created_by UUID NOT NULL,
     subject VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
     status VARCHAR(20) DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
@@ -110,631 +425,249 @@ CREATE TABLE support_tickets (
 
 -- Indexes
 CREATE INDEX ON n8n_vectors USING ivfflat (embedding vector_cosine_ops);
-CREATE INDEX idx_users_firebase_uid ON users(firebase_uid);
-CREATE INDEX idx_users_company_id ON users(company_id);
 ```
 
-**Metadata Structure:**
-```json
-{
-  "file_name": "client_contract_x.pdf",
-  "workflow_id": "wf_12345",
-  "upload_date": "2026-01-15T10:30:00Z",
-  "company_id": "uuid-company-123",
-  "page_number": 3,
-  "chunk_index": 12
-}
-```
-
----
-
-## Data Flow
-
-### Knowledge Base Upload Flow
-```
-1. Client uploads PDF on dashboard (conoscenza.html)
-   ↓
-2. Frontend validates file (type, size)
-   ↓
-3. POST request → n8n webhook /post_knowledge
-   ↓
-4. n8n Workflow:
-   - Read PDF/DOCX
-   - Text extraction
-   - Chunking (500 tokens, 50 token overlap)
-   - Generate embeddings with Gemini API
-   - Save to Postgres (n8n_vectors table)
-   ↓
-5. Response → Frontend (success/error)
-```
-
-### Chat RAG Flow
-```
-1. User sends query on chat.html
-   ↓
-2. POST → n8n webhook /chat
-   ↓
-3. n8n Workflow:
-   - Generate query embedding (Gemini)
-   - Vector similarity search on Postgres (pgvector)
-   - Filter by company_id (multi-tenant isolation)
-   - Retrieve top-K most relevant chunks
-   - Build prompt with context
-   - LLM call (Gemini)
-   - Return response + sources
-   ↓
-4. Response → Frontend (show response + citations)
-```
+**Nota:** Gli utenti NON sono in PostgreSQL. Sono gestiti interamente su Firebase Auth con custom claims.
 
 ---
 
 ## Multi-tenant Architecture
 
-### Isolation Strategy
+### Principio
+Ogni cliente vede SOLO i propri dati. L'isolamento avviene a due livelli:
 
-**Principle:** Each client sees ONLY their own data
+**1. Livello infrastruttura:** Ogni cliente ha la propria istanza n8n su VM dedicata (licenza n8n Community: 1 VM = 1 istanza).
 
-**Company ID Filtering:**
-- Every request includes `company_id` (from session/localStorage)
-- n8n workflows apply WHERE filter on ALL queries:
-  ```sql
-  SELECT * FROM n8n_vectors
-  WHERE metadata->>'company_id' = $company_id
-  ```
+**2. Livello dati:** `company_id` filtra ogni query:
+```sql
+SELECT * FROM n8n_vectors
+WHERE metadata->>'company_id' = $company_id
+```
 
-**Infrastructure:**
-- **Current:** 1 n8n VM per client (compliant with n8n Community License)
-- **Estimated limit:** ~5-10 clients per Oracle Free VM (2 OCPU, 12GB RAM)
-- **Scalability:** Automatic provisioning of new VMs when needed
+### Come funziona nel frontend
 
-**Session Management:**
-- `company_id` saved in `localStorage` after login
-- Validated server-side on every request
-- JWT token (Firebase Auth) includes `company_id` in claims
+```javascript
+// Utente normale: usa il proprio endpoint
+const url = AuthManager.getWebhookUrl('dashboard-api')
+// → https://cliente-n8n.example.com/webhook/dashboard-api
 
-### Security Concerns to Verify
-⚠️ **CRITICAL:** Verify that ALL n8n workflows apply company_id filtering
-⚠️ **CRITICAL:** Prevent data leakage in vector store
-⚠️ **CRITICAL:** Validate company_id server-side (don't trust the client)
+// Admin: usa l'endpoint dell'azienda selezionata
+const url = AuthManager.getCompanyEndpoint(selectedCompanyId) + '/webhook/dashboard-api'
+// → https://azienda-scelta-n8n.example.com/webhook/dashboard-api
+
+// API centralizzate: sempre main-n8n
+const url = AuthManager.getCentralizedApiUrl('support-api')
+// → https://main-n8n.axentia-automation.it/webhook/support-api
+```
+
+### Custom Claims Firebase
+```json
+// Admin (info@axentia-automation.it)
+{ "role": "admin", "company_id": null }
+
+// Utente normale
+{ "role": "user", "company_id": "<company-uuid>" }
+```
+
+**NOTA:** `n8n_endpoint` NON è nei claims. Viene recuperato dalla tabella companies via `company_id` con la chiamata `AuthManager.loadClientEndpointFromCompany()`.
 
 ---
 
-## Security & Compliance
+## Security & GDPR
 
-### GDPR Compliance Requirements
-
-**Data Processing:**
-- [ ] Explicit consent for file uploads?
-- [ ] Clear privacy policy
-- [ ] Cookie policy (if applicable)
-
-**User Rights:**
-- [ ] Right to deletion (Art. 17) - how to delete data + embeddings?
-- [ ] Right to access (Art. 15) - export user data
-- [ ] Data portability (Art. 20)
-
-**Data Retention:**
-- [ ] Retention policy: how long to keep files/embeddings?
-- [ ] Auto-deletion after N days?
-
-**Cross-border Transfer:**
-- [ ] Gemini API (Google US) - Transfer Impact Assessment needed?
-- [ ] Standard Contractual Clauses (SCC)?
-
-**PII Handling:**
-- [ ] PII tracking (Personally Identifiable Information)
-- [ ] Anonymization/pseudonymization
-- [ ] Encryption at rest and in transit
-
-### Security Checklist
-
-**Frontend:**
-- [x] XSS prevention - user input sanitization (SecurityUtils)
-- [ ] CSRF protection - token validation
+### Frontend Security
+- [x] XSS prevention - `SecurityUtils.escapeHtml()` e `escapeAttribute()` su ogni input utente
+- [x] Input validation client-side (file size, type, UUID, email)
+- [x] Secure session ID con `crypto.randomUUID()`
+- [x] Cookie consent GDPR con CookieConsent.js (categorie: necessary + analytics)
+- [x] Google Analytics condizionale (solo con consenso)
 - [ ] Content Security Policy (CSP) headers
-- [x] Client-side input validation (file size, type, etc.)
+- [ ] CSRF protection
 
-**Backend (n8n workflows):**
-- [x] SQL Injection - prepared statements in Postgres nodes
-- [ ] File upload validation - magic number check, not just extension
-- [ ] Rate limiting - abuse protection
-- [ ] ⚠️ **CRITICAL:** JWT validation in Users API (currently only checks "Bearer " prefix)
-- [ ] ⚠️ **CRITICAL:** Admin role check in Manage Users workflow
-- [ ] ⚠️ **CRITICAL:** Company_id filtering in Users API (returns ALL users/companies)
-- [ ] Webhook authentication - secret tokens configured
-- [ ] Error handling - no sensitive info leak in errors
+### Backend Security (n8n)
+- [x] JWT validation completa in User Management API (Firebase public keys + signature verify)
+- [x] Admin role check su operazioni di scrittura (Check Admin → 403)
+- [x] Input validation con nodi IF dedicati in Support API
+- [ ] JWT validation in Support API (attualmente solo check "Bearer " prefix)
+- [ ] JWT validation in Frontend API (attualmente solo Validate Input generico)
+- [ ] Rate limiting
+- [ ] File upload validation con magic numbers
+- [ ] Audit logging
 
-**API Security:**
-- [ ] CORS properly configured for multi-tenant
-- [ ] API keys in environment variables (NOT hardcoded)
-- [ ] HTTPS only (no HTTP)
-- [ ] Authentication on ALL endpoints
+### Validators disponibili (security-utils.js)
+```javascript
+SecurityUtils.validators = {
+  period: ['24h', '7d', '30d', '90d', '365d'],
+  fileName: /^[\w\-. ]+\.(pdf|docx|txt|csv|xlsx)$/i,
+  workflowId: /^[a-zA-Z0-9_-]+$/,
+  uuid: /^[0-9a-f]{8}-...-[0-9a-f]{12}$/i,
+  email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  role: ['admin', 'user'],
+  ticketStatus: ['open', 'in_progress', 'resolved', 'closed'],
+  ticketPriority: ['low', 'medium', 'high', 'urgent'],
+  displayName: /^[\p{L}\s\-'.]{1,100}$/u
+}
+```
 
-**Session Security:**
-- [ ] Secure cookies (HttpOnly, Secure, SameSite)
-- [ ] Session timeout configured
-- [ ] Token refresh strategy (Firebase Auth)
+### GDPR Compliance
+- [x] Cookie consent con opt-in analytics
+- [ ] Right to deletion (Art. 17) - come eliminare dati + embeddings?
+- [ ] Right to access (Art. 15) - export dati utente
+- [ ] Data retention policy
+- [ ] Cross-border transfer assessment (Gemini API → Google US)
+- [ ] Privacy policy
 
 ---
 
 ## Deployment & Hosting
 
 ### GitHub Pages
+- **Domain:** `dash.axentia-automation.it` (CNAME file)
+- **Deploy:** git push to main → auto-deploy (1-2 min)
+- **HTTPS:** Automatico
+- **robots.txt:** `Disallow: /` (dashboard privata, non indicizzata)
 
-**Hosting Platform:** GitHub Pages (https://pages.github.com)
-**URL Pattern:** `https://{username}.github.io/{repo-name}/` or custom domain
+### Vincoli GitHub Pages
+- Solo file statici (HTML/CSS/JS)
+- Nessun server-side processing → tutto via n8n webhooks
+- File uploads vanno direttamente a n8n (non salvati su GitHub Pages)
+- CORS deve essere configurato su n8n
 
-#### GitHub Pages Advantages
-- ✅ **Free** - 100% free tier, no cost
-- ✅ **Automatic HTTPS** - SSL/TLS by default
-- ✅ **Automatic deploy** - git push → auto-deploy
-- ✅ **Custom domain** - custom domain support
-- ✅ **Global CDN** - distributed worldwide hosting
-- ✅ **Excellent uptime** - 99.9%+ GitHub SLA
-
-#### GitHub Pages Limitations
-- ⚠️ **Static only** - HTML/CSS/JS only (no PHP, Node, Python)
-- ⚠️ **File limit:** 1GB repository size
-- ⚠️ **Bandwidth limit:** 100GB/month (soft limit)
-- ⚠️ **Build limit:** 10 builds/hour
-- ⚠️ **No server-side processing** - all client-side
-
-#### Architectural Implications
-
-**1. All processing must be client-side or delegated to n8n:**
-```javascript
-// ❌ NOT POSSIBLE on GitHub Pages
-app.post('/api/upload', (req, res) => { ... })
-
-// ✅ CORRECT - call to n8n webhook
-fetch('https://main-n8n.axentia-automation.it/webhook/upload', {
-  method: 'POST',
-  body: formData
-})
-```
-
-**2. Environment Variables:**
-- GitHub Pages does NOT support server-side `.env`
-- Solutions:
-  - Hardcode public URLs in code (OK for public endpoints)
-  - Firebase Remote Config for dynamic values
-  - Build-time substitution with GitHub Actions
-
-**3. CORS Configuration:**
-- n8n must have CORS configured to accept requests from GitHub Pages domain
-- Whitelist origins: `https://{username}.github.io`
-
-**4. File Upload Strategy:**
-- Files CANNOT be saved on GitHub Pages (read-only)
-- All files go directly to n8n webhook → backend storage
-- n8n saves files on Oracle Cloud VM or external storage (S3-compatible)
-
-#### Deployment Workflow
-
-**Initial Setup:**
+### Local Testing
 ```bash
-# 1. Create GitHub repository (if not exists)
-git remote add origin https://github.com/{username}/axentia-dashboard.git
-
-# 2. Configure GitHub Pages
-# Settings → Pages → Source: main branch / root (or /docs)
-
-# 3. (Optional) Custom domain
-# Settings → Pages → Custom domain: dashboard.axentia-automation.it
-# Add DNS CNAME record: dashboard → {username}.github.io
-```
-
-**Deploy Process:**
-```bash
-# Every push to main branch auto-deploys
-git add .
-git commit -m "Update dashboard"
-git push origin main
-
-# GitHub Pages rebuilds automatically (1-2 minutes)
-```
-
-#### Security Considerations
-
-**GitHub Pages is public:**
-- ⚠️ **Never** commit API keys, secrets, passwords
-- ⚠️ Use `.gitignore` for sensitive files
-- ⚠️ File `.mcp.json` (with n8n API key) **MUST** be in `.gitignore`
-- ✅ API keys only in environment variables (n8n side) or Firebase Remote Config
-
-**Client-side Security:**
-- ✅ Input validation always client-side (before sending to n8n)
-- ✅ XSS sanitization on dynamic content
-- ✅ CSP headers (configurable via meta tag)
-- ✅ No hardcoded credentials in JavaScript
-
-**CORS & API Security:**
-```javascript
-// n8n webhook should verify origin
-if (request.headers.origin !== 'https://{username}.github.io') {
-  return { error: 'Unauthorized origin' }
-}
-```
-
-#### Local Testing
-
-Before deploy, test locally with:
-```bash
-# Option 1: Python SimpleHTTPServer
+# VS Code Live Server (porta 5501 configurata in .vscode/settings.json)
+# Oppure:
 python -m http.server 8000
-# Open http://localhost:8000
-
-# Option 2: VS Code Live Server extension
-# Right-click on index.html → "Open with Live Server"
-
-# Option 3: Node http-server
 npx http-server -p 8000
 ```
 
----
-
-## Development Constraints
-
-### Hard Constraints
-- ✅ **Frontend:** Vanilla JS only (no frameworks)
-- ✅ **Backend:** n8n workflows only (no custom API server)
-- ✅ **Hosting:** GitHub Pages (static hosting only)
-- ✅ **Budget:** €0 (free tier services only)
-- ✅ **Infrastructure:** Oracle Cloud Always Free tier (for n8n + DB)
-- ✅ **License:** n8n Community Edition (1 VM = 1 client)
-
-### Preferred Tools (Free Tier)
-- **Database:** PostgreSQL (Oracle Cloud)
-- **Vector DB:** pgvector extension (avoids Pinecone/Weaviate costs)
-- **AI API:** Google Gemini API (generous free tier)
-- **Auth:** Firebase Auth (free tier: 10k MAU)
-- **CDN:** Cloudflare (free tier)
-- **Monitoring:** Grafana Cloud (free tier) or UptimeRobot
-
----
-
-## n8n Workflow Best Practices
-
-### Naming Convention
-- Format: `[<Area>] <Workflow Name>`
-- Add a tag indicating the workflow type
-- Examples:
-  - `[Dashboard] User Management API` + tag: `api`
-  - `[Support] Ticket Handler` + tag: `webhook`
-  - `[Analytics] Daily Report Generator` + tag: `scheduled`
-  - `[Knowledge] Document Processor` + tag: `processor`
-
-### IMPORTANT: Use Explicit Nodes, Not Code Nodes
-
-When creating n8n workflows, prefer explicit nodes over Code nodes:
-
-✅ **DO:**
-- Use Switch node for routing by action
-- Use Postgres node for database queries
-- Use HTTP Request node for API calls
-- Use IF node for conditional logic
-- Use Set node for data transformation
-- Use Respond to Webhook node for responses
-
-❌ **DON'T:**
-- Use a single Code node to handle all routing logic
-- Embed SQL queries in JavaScript code
-- Use Code node when a native node exists
-
-**Reasons:**
-1. Explicit nodes are easier to debug visually
-2. Native nodes have built-in error handling
-3. Workflow structure is self-documenting
-4. Better compatibility with n8n updates
-
-**Example - Correct Approach:**
-```
-[Webhook] → [Switch: action]
-    ├── "list_users" → [Postgres: SELECT users] → [Respond]
-    ├── "create_user" → [IF: validate] → [Postgres: INSERT] → [Respond]
-    ├── "update_user" → [Postgres: UPDATE] → [Respond]
-    └── fallback → [Respond: Error 400]
-```
-
-### Use MCP Tools & Skills
-
-Always use the appropriate n8n skills when building workflows:
-- **n8n-mcp-tools-expert** - For tool selection and workflow management
-- **n8n-node-configuration** - For understanding node parameters
-- **n8n-workflow-patterns** - For architectural patterns
-- **n8n-validation-expert** - For validating configurations
-- **n8n-expression-syntax** - For writing expressions
-- **n8n-code-javascript** / **n8n-code-python** - Only when Code node is truly necessary
-
----
-
-## MCP Tools & Skills
-
-### n8n-mcp Server
-**Configuration:** [.mcp.json](.mcp.json)
-**Endpoint:** https://main-n8n.axentia-automation.it
-**Capabilities:**
-- Read existing workflows
-- Modify workflows (with caution!)
-- Execute workflows
-- Analyze node structure
-
-### n8n-skills (7 skills installed)
-1. **n8n-mcp-tools-expert** ⭐ (highest priority)
-2. **n8n-expression-syntax** - n8n expressions
-3. **n8n-workflow-patterns** - Design patterns
-4. **n8n-validation-expert** - Configuration validation
-5. **n8n-node-configuration** - Node setup
-6. **n8n-code-javascript** - JS Code node
-7. **n8n-code-python** - Python Code node
-
-**Recommended Usage:**
-- Use skills for n8n best practices
-- Validate workflows before deploy
-- Verify security patterns in workflows
-
----
-
-## Roadmap & Features
-
-### ✅ Implemented
-- Multi-page dashboard (index, report, conoscenza, chat, flussi, supporto, utenti)
-- Knowledge base upload (PDF/DOCX)
-- RAG chat with vector similarity search
-- Cloudflare Access authentication (admin)
-- PostgreSQL with pgvector
-- Firebase Auth with RBAC
-- User management (admin only)
-- Support ticket system
-
-### 🚧 In Development
-- **GDPR compliance assessment** (HIGH PRIORITY)
-- Complete security audit
-- Backup & disaster recovery strategy
-- Audit logging system
-
-### 📋 Planned
-
-**1. Real-time Workflow Status**
-- Polling vs WebSocket vs Server-Sent Events?
-- Optimal polling frequency: 5-10s?
-- Live n8n workflow status dashboard
-
-**2. Advanced Analytics Dashboard**
-- Time-series metrics (InfluxDB? TimescaleDB?)
-- Interactive charts (Chart.js? D3.js?)
-- Excel/PDF report export
-
-**3. File Management UI**
-- In-browser PDF preview
-- Document versioning (v1, v2, v3)
-- Bulk upload (multiple drag & drop)
-- File compression pre-upload
-
-**4. Monitoring & Alerts**
-- n8n health check endpoint
-- Uptime monitoring (UptimeRobot)
-- Email/Telegram alerts on failures
-- Usage metrics dashboard
-
----
-
-## Current Issues to Address
-
-### 🔴 Critical Priority
-1. **GDPR Compliance Audit**
-   - Verify consent management
-   - Implement right to deletion
-   - Data retention policy
-   - Cross-border transfer assessment
-
-2. **Security Vulnerabilities**
-   - SQL injection in Postgres workflows
-   - Robust file upload validation
-   - Session hijacking prevention
-
-3. **Multi-tenant Data Isolation**
-   - Audit company_id filters in ALL workflows
-   - Test vector store data leakage
-   - Server-side company_id validation
-
-### 🟡 High Priority
-4. **Backup & Disaster Recovery**
-   - Automatic Postgres backup (Oracle Cloud)
-   - Test restore procedure
-   - RPO/RTO target: 24h / 4h?
-   - Backup embeddings (expensive to regenerate)
-
-5. **Audit Logging**
-   - Log user actions (who, what, when)
-   - Log unauthorized access attempts
-   - Log retention: 90 days? 1 year?
-   - ISO 27001 / SOC 2 compliance
-
-### 🟢 Medium Priority
-6. **Performance Optimization**
-   - Caching (Redis? localStorage?)
-   - Vector index optimization (HNSW vs IVFFlat)
-   - Lazy loading for long lists
-   - CDN for static assets
-
-7. **Scalability Planning**
-   - Client limit per VM (stress test)
-   - Database sharding strategy
-   - Alternative vector store (Pinecone/Weaviate) when?
-
----
-
-## Useful Commands
-
-### n8n API (with API key)
-```bash
-# List workflows
-curl -H "X-N8N-API-KEY: $N8N_API_KEY" \
-  https://main-n8n.axentia-automation.it/api/v1/workflows
-
-# Get workflow by ID
-curl -H "X-N8N-API-KEY: $N8N_API_KEY" \
-  https://main-n8n.axentia-automation.it/api/v1/workflows/{id}
-
-# Execute workflow
-curl -X POST -H "X-N8N-API-KEY: $N8N_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"param": "value"}' \
-  https://main-n8n.axentia-automation.it/api/v1/workflows/{id}/execute
-```
-
-### PostgreSQL (example queries)
-```sql
--- Check vector store size
-SELECT COUNT(*),
-       pg_size_pretty(pg_total_relation_size('n8n_vectors')) as size
-FROM n8n_vectors;
-
--- Check company_id distribution
-SELECT metadata->>'company_id' as company, COUNT(*)
-FROM n8n_vectors
-GROUP BY company;
-
--- Vector similarity search (example)
-SELECT text, metadata,
-       1 - (embedding <=> '[0.1, 0.2, ...]'::vector) AS similarity
-FROM n8n_vectors
-WHERE metadata->>'company_id' = 'uuid-123'
-ORDER BY embedding <=> '[0.1, 0.2, ...]'::vector
-LIMIT 5;
-```
-
----
-
-## Notes for Claude
-
-### When Working on This Project
-1. **Always respect frontend constraint:** Vanilla JS only, no frameworks
-2. **Always respect backend constraint:** n8n workflows only, no custom API
-3. **Always respect hosting constraint:** GitHub Pages static only - no server-side code
-4. **Always consider multi-tenant isolation:** company_id filtering everywhere
-5. **Always check security:** XSS, injection, file validation, no secrets in code
-6. **Always consider GDPR:** consent, deletion, retention, PII
-7. **Always use explicit n8n nodes:** Prefer native nodes over Code nodes
-
-### GitHub Pages Important Notes
-⚠️ **Repository is PUBLIC** - Never commit:
+### Repository Security
+**Repository PUBBLICO** - Mai committare:
+- `.mcp.json` (contiene API key n8n)
+- `.env` files
 - API keys, tokens, secrets
-- `.mcp.json` (contains n8n API key)
-- `.env` files with credentials
-- Customer data or PII
+- Dati clienti o PII
 
-✅ **Always remember:**
-- All processing must be client-side OR via n8n webhooks
-- File uploads go directly to n8n (not saved on GitHub Pages)
-- CORS must be configured on n8n side
-- Test locally before git push (auto-deploys to production)
+---
 
-### Before Modifying n8n Workflows
-⚠️ **NEVER edit production workflows directly**
-- Always test in development environment first
-- Use n8n-skills for best practices validation
-- Backup workflow JSON before modifying
-- Test with mock data, not real customer data
+## Development Constraints & Code Style
 
-### Code Style Preferences
-- **JavaScript:** ES6+ syntax, async/await (not .then() chains)
-- **Comments:** Only where logic isn't self-evident (no over-commenting)
-- **Error handling:** Try-catch for async operations, user-friendly messages
-- **Variable naming:** camelCase, descriptive (no obscure abbreviations)
+### Vincoli
+- **Frontend:** Vanilla JS only (NO React, Vue, Angular, Svelte)
+- **Backend:** n8n workflows only (NO Express, FastAPI, custom API)
+- **Hosting:** GitHub Pages static only
+- **Budget:** €0 (free tier only)
+- **n8n License:** Community Edition (1 VM = 1 istanza per cliente)
+- **CSS:** Custom CSS only (NO framework CSS)
+
+### Code Style
+- **JavaScript:** ES6+, async/await (no .then() chains)
+- **Naming:** camelCase, descriptivo
+- **Error handling:** try-catch per async, messaggi user-friendly
+- **Comments:** Solo dove la logica non è self-evident
+- **Security:** Sempre `SecurityUtils.escapeHtml()` per input utente in innerHTML
+
+### n8n Workflow Best Practices
+- **Naming:** `[<Area>] <Workflow Name>` + tag tipo
+- **Preferire nodi espliciti** (Switch, Postgres, IF, Set, HTTP Request) invece di Code node
+- **Validare sempre** con n8n MCP tools prima del deploy
+- **Mai editare produzione** senza backup versione
+
+### Mantenimento Documentazione
+**OBBLIGATORIO:** Dopo ogni modifica significativa al progetto, aggiornare questo CLAUDE.md:
+- **Nuovo file/pagina HTML** → Aggiornare tabella "Pagine HTML" e sezione pertinente
+- **Nuovo file JS o modifica strutturale** → Aggiornare tabella "File JavaScript" e dipendenze
+- **Modifica workflow n8n** (nuova action, nuovo nodo, cambio flusso) → Aggiornare la sezione del workflow interessato (Frontend API / User Management / Support API)
+- **Nuovo workflow n8n** → Aggiungere sezione dedicata con flusso e actions
+- **Cambio schema DB** → Aggiornare sezione "Database Schema"
+- **Nuova libreria/CDN** → Aggiornare tabella "Librerie Esterne & CDN"
+- **Feature completata** → Spostare da "In Sviluppo"/"Pianificato" a "Implementato"
+- **Nuovo security fix** → Aggiornare checklist in "Security & GDPR"
+- Aggiornare sempre `Last updated` e incrementare la versione in fondo al documento
 
 ---
 
 ## Known Issues & Debugging
 
-### AuthManager Property Names
-⚠️ **IMPORTANT:** Use correct property names when accessing AuthManager:
+### AuthManager - Property Names Corretti
 
-| Correct | Incorrect |
-|---------|-----------|
+| Corretto | Sbagliato |
+|----------|-----------|
 | `AuthManager.clientEndpoint` | `AuthManager.n8nEndpoint` |
-| `AuthManager.getIdToken()` | `AuthManager.idToken` (direct access) |
-| `AuthManager.getWebhookUrl(path)` | Building URLs manually |
+| `AuthManager.getIdToken()` | `AuthManager.idToken` (accesso diretto) |
+| `AuthManager.getWebhookUrl(path)` | Costruire URL manualmente |
+| `AuthManager.getCentralizedApiUrl(path)` | Hardcodare URL main-n8n |
 
-### Firebase Custom Claims Structure
-Custom claims are stored in `tokenResult.claims` and include:
-```json
-{
-  "role": "admin|user",
-  "company_id": "uuid-string or null",
-  "n8n_endpoint": "https://main-n8n.axentia-automation.it"
-}
-```
-
-**Admin user (info@axentia-automation.it):**
-```json
-{
-  "role": "admin",
-  "company_id": null,
-  "n8n_endpoint": "https://main-n8n.axentia-automation.it"
-}
-```
-
-**Regular user:**
-```json
-{
-  "role": "user",
-  "company_id": "<company-uuid>",
-  "n8n_endpoint": "https://main-n8n.axentia-automation.it"
-}
-```
-
-### Debug Role Detection
-Open browser DevTools Console and look for:
-- `[AuthManager] Token claims: {...}` - Shows extracted claims from Firebase
-- `[AuthManager] updateUIForRole: {...}` - Shows role being applied to UI
-
-**Manual debugging in console:**
+### Debug in Console
 ```javascript
-// Check current role
-console.log('Role:', AuthManager.userRole);
-console.log('Is Admin:', AuthManager.isAdmin());
+// Verifica ruolo
+console.log('Role:', AuthManager.userRole)
+console.log('Is Admin:', AuthManager.isAdmin())
+console.log('Company:', AuthManager.companyId)
+console.log('Endpoint:', AuthManager.clientEndpoint)
 
-// Check admin elements
+// Verifica elementi admin
 document.querySelectorAll('[data-role="admin"]').forEach(el => {
-    console.log(el.tagName, el.style.display, el.textContent.substring(0, 50));
-});
+    console.log(el.tagName, el.style.display)
+})
 ```
 
-### Backend Security Gaps (To Address)
-⚠️ **CRITICAL:** The following n8n workflows need security improvements:
+### Log da cercare in DevTools
+- `[AuthManager] Token claims: {...}` - Claims estratti dal token
+- `[AuthManager] updateUIForRole: {...}` - Ruolo applicato alla UI
 
-1. **[Service] Users API** (`yUGfj1SPnlV5ghc3`)
-   - [ ] Add Firebase JWT validation (not just "Bearer " prefix check)
-   - [ ] Add admin role check before returning user/company lists
-   - [ ] Filter users by company_id for non-admin requests
+### Security Gaps da Risolvere
 
-2. **[Dashboard] Manage Users** (`gp4LSpM60id6cRt2`)
-   - [ ] Add authentication to webhook
-   - [ ] Add admin role verification before CRUD operations
-   - [ ] Return 401/403 for unauthorized requests
+1. **Support API** (`EmrSglbOTyyDDRCP`) - Validate Auth controlla solo presenza "Bearer", non valida il JWT
+2. **Frontend API** (`G4CWLAYZUXDVdjxG`) - Validate Input è un Code node generico, non valida JWT
+3. **Tutti i workflow** - Aggiungere audit logging per operazioni sensibili
 
-3. **[Dashboard] Manage Companies** (`NWl8vhus7fvuOD2K`)
-   - [ ] Add authentication and admin role check
+---
 
-4. **All Workflows**
-   - [ ] Validate company_id server-side (don't trust client)
-   - [ ] Add audit logging for sensitive operations
+## Roadmap
+
+### Implementato
+- Multi-page dashboard (8 pagine)
+- Firebase Auth con RBAC (admin/user)
+- Dashboard KPI con Chart.js (bar + pie chart)
+- Knowledge base upload (PDF, DOCX, TXT, CSV, XLSX - max 10MB)
+- RAG chat con vector similarity search (Gemini + pgvector)
+- Selezione agente AI nel chat
+- Upload file nel chat
+- Rendering Markdown, LaTeX, syntax highlighting nel chat
+- User management (admin only) con invito email
+- Company management (admin only)
+- Support ticket system con messaggistica e note interne
+- Badge notifiche ticket non letti
+- Cookie consent GDPR (CookieConsent.js)
+- Esecuzione manuale workflow con parametri dinamici
+- Filtro azienda per admin su tutte le pagine
+- robots.txt (Disallow: /)
+
+### In Sviluppo
+- GDPR compliance assessment completo
+- Security audit backend (JWT validation su tutti i workflow)
+- Audit logging system
+
+### Pianificato
+- Real-time workflow status (polling/SSE)
+- Export report Excel/PDF
+- File preview in-browser
+- Document versioning
+- Monitoring & alerts (UptimeRobot)
+- Backup & disaster recovery strategy
 
 ---
 
 ## Contacts & Resources
 
 **n8n Instance:** https://main-n8n.axentia-automation.it
-**Documentation:** https://docs.n8n.io
-**pgvector Docs:** https://github.com/pgvector/pgvector
+**Dashboard:** https://dash.axentia-automation.it
+**n8n Docs:** https://docs.n8n.io
+**pgvector:** https://github.com/pgvector/pgvector
 **Gemini API:** https://ai.google.dev/docs
-
-**Issue Tracking:** TBD (GitHub Issues?)
-**Team Chat:** TBD (Slack? Discord?)
 
 ---
 
-*Last updated: 2026-02-05*
-*Document version: 2.1*
+*Last updated: 2026-02-14*
+*Document version: 3.0*

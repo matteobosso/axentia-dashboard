@@ -324,10 +324,14 @@ async function initAgents() {
     });
 
     // 2. LOGICA DATI: Recupero agenti dal server
+    const token = await AuthManager.getIdToken();
     try {
         const response = await fetch(getWebhookUrl(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
             body: JSON.stringify({ action: 'get_agents' })
         });
         const agents = await response.json();
@@ -403,12 +407,16 @@ function resetAllFilters() {
 async function initReport() {
     const periodSelect = document.getElementById('filterPeriod');
     const periodo = periodSelect ? periodSelect.value : '30d';
+    const token = await AuthManager.getIdToken(); 
 
     try {
         const requestBody = buildRequestBody({ action: 'get_report', period: periodo });
         const response = await fetch(getWebhookUrl(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
             body: JSON.stringify(requestBody)
         });
 
@@ -447,11 +455,16 @@ async function initReport() {
  * Carica i dati per la lista dei Workflow (Pagina Flussi)
  */
 async function initDashboard() {
+    const token = await AuthManager.getIdToken(); 
+
     try {
         const requestBody = buildRequestBody({ action: 'get_workflows' });
         const response = await fetch(getWebhookUrl(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
             body: JSON.stringify(requestBody)
         });
 
@@ -877,6 +890,8 @@ function animateValue(id, start, end, duration, isEuro = false) {
 // Funzione per caricare la tabella dei file indicizzati
 async function loadKnowledgeBase() {
     const tbody = document.getElementById('kbTableBody');
+    const token = await AuthManager.getIdToken(); 
+
     if (!tbody) return;
 
     try {
@@ -892,7 +907,10 @@ async function loadKnowledgeBase() {
         });
         const response = await fetch(getWebhookUrl(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
             body: JSON.stringify(requestBody)
         });
 
@@ -986,9 +1004,14 @@ async function uploadFiles() {
     btn.disabled = true;
 
     // 4. Invio
+    const token = await AuthManager.getIdToken();
+    console.log("Invio file al server con workflow_id:", token, workflowId, fileInput.files);
     try {
         const response = await fetch(getWebhookUrl(), { 
             method: 'POST', 
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
             body: formData 
         });
 
@@ -1066,10 +1089,15 @@ async function processDelete(fileName) {
         return;
     }
 
+    const token = await AuthManager.getIdToken();
+
     try {
         const response = await fetch(getWebhookUrl(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
             body: JSON.stringify({ 
                 action: 'post_knowledge', 
                 sub_action: 'delete', 
